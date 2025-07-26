@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
@@ -329,6 +330,7 @@ export default function MainLayout({
 
   return (
     <>
+    <TooltipProvider>
     <div className="relative min-h-screen w-full bg-background font-body">
        <div 
         className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%] animate-gradient"
@@ -342,35 +344,72 @@ export default function MainLayout({
             </div>
             {user && (
             <div className="flex items-center gap-1">
-              <Link href="/reports">
-                <Button variant="ghost" size="icon" title="Reports" className={cn(pathname === '/reports' && 'bg-accent/20')}>
-                  <LineChart className="h-5 w-5" />
-                </Button>
-              </Link>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Link href="/reports">
+                    <Button variant="ghost" size="icon" className={cn(pathname === '/reports' && 'bg-accent/20')}>
+                      <LineChart className="h-5 w-5" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Reports</p>
+                </TooltipContent>
+              </Tooltip>
+              
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleRefresh}>
+                    <RefreshCw className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Refresh Data</p>
+                </TooltipContent>
+              </Tooltip>
 
-              <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refresh Data">
-                <RefreshCw className="h-5 w-5" />
-              </Button>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
-              <Button variant="ghost" size="icon" onClick={handleImportClick} title="Import Data">
-                <Upload className="h-5 w-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleImportClick}>
+                    <Upload className="h-5 w-5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Import Data</p>
+                </TooltipContent>
+              </Tooltip>
 
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                   <Button variant="ghost" size="icon" title="Export Data">
-                    <Download className="h-5 w-5" />
-                  </Button>
-                </DropdownMenuTrigger>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <Download className="h-5 w-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Export Data</p>
+                  </TooltipContent>
+                </Tooltip>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExportJson}>Export as JSON</DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportPdf}>Export as PDF</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button variant="ghost" size="icon" onClick={() => setIsClearingData(true)} title="Clear All Data" className="text-destructive hover:text-destructive hover:bg-destructive/10">
-                <Trash2 className="h-5 w-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={() => setIsClearingData(true)} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                        <Trash2 className="h-5 w-5" />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Clear All Data</p>
+                </TooltipContent>
+              </Tooltip>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -404,6 +443,7 @@ export default function MainLayout({
         </main>
       </div>
     </div>
+    </TooltipProvider>
     <AlertDialog open={isClearingData} onOpenChange={setIsClearingData}>
       <AlertDialogContent>
         <AlertDialogHeader>

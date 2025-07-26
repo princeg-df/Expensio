@@ -3,6 +3,7 @@ import './globals.css';
 import { AppProvider } from '@/providers/app-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter, Playfair_Display } from 'next/font/google'
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const playfairDisplay = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair-display' })
@@ -23,7 +24,9 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${playfairDisplay.variable} font-sans antialiased`}>
         <AppProvider>
-          {children}
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
         </AppProvider>
         <Toaster />
       </body>
