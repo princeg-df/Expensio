@@ -102,7 +102,7 @@ export default function DashboardPage() {
     if (!user) return;
     await addDoc(collection(db, `users/${user.uid}/autopays`), {
       ...data,
-      paymentDate: Timestamp.fromDate(data.date),
+      paymentDate: Timestamp.fromDate(data.paymentDate),
       amount: Number(data.amount),
     });
   };
