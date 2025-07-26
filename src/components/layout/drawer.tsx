@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -305,6 +305,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="flex flex-col gap-2">
+               <Link href="/dashboard" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/dashboard' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                </Button>
+              </Link>
                <Link href="/reports" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/reports' ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <LineChart className="mr-2 h-4 w-4" /> Reports
@@ -377,3 +382,5 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
+
+    
