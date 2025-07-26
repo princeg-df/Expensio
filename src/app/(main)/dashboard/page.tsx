@@ -21,8 +21,9 @@ import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, FileJson, RefreshCw } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, FileJson, RefreshCw, Landmark, PlusCircle, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type DeletionInfo = {
@@ -315,28 +316,16 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-           <Button variant="ghost" size="icon" onClick={() => fetchData(true)} disabled={isRefreshing}>
-             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-           </Button>
-           <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
-           <AddEmiDialog 
-              key={`emi-${editingEmi?.id || 'new'}`}
-              onAddOrUpdateEmi={handleAddOrUpdateEmi}
-              existingEmi={editingEmi}
-              onClose={() => setEditingEmi(null)}
-            />
-           <AddAutopayDialog 
-              key={`autopay-${editingAutopay?.id || 'new'}`}
-              onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
-              existingAutopay={editingAutopay}
-              onClose={() => setEditingAutopay(null)}
-            />
            <AddTransactionDialog 
               key={`transaction-${editingTransaction?.id || 'new'}`}
               onAddOrUpdateTransaction={handleAddOrUpdateTransaction}
               existingTransaction={editingTransaction}
               onClose={() => setEditingTransaction(null)}
             />
+           <Button variant="outline" onClick={() => fetchData(true)} disabled={isRefreshing}>
+             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+             <span className="ml-2 hidden sm:inline">Refresh</span>
+           </Button>
         </div>
       </div>
 
@@ -348,45 +337,92 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <h2 className="text-2xl font-bold tracking-tight">Recent Transactions</h2>
-            <div className="flex space-x-2">
-                <button onClick={() => setActiveFilter('all')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>All</button>
-                <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Income</button>
-                <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Expenses</button>
-            </div>
-           </div>
-          <TransactionTable 
-            transactions={filteredTransactions} 
-            onEdit={setEditingTransaction}
-            onDelete={(id) => openDeleteDialog(id, 'transaction')}
-          />
+        <div className="lg:col-span-2 space-y-6">
+           <Card>
+            <CardHeader>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle>Recent Transactions</CardTitle>
+                <div className="flex space-x-1 bg-muted p-1 rounded-full text-sm">
+                    <button onClick={() => setActiveFilter('all')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'all' ? 'bg-background shadow' : '')}>All</button>
+                    <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-background shadow' : '')}>Income</button>
+                    <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-background shadow' : '')}>Expenses</button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <TransactionTable 
+                transactions={filteredTransactions} 
+                onEdit={setEditingTransaction}
+                onDelete={(id) => openDeleteDialog(id, 'transaction')}
+              />
+            </CardContent>
+           </Card>
+           <Card>
+             <CardHeader>
+                <CardTitle>Expense Analysis</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ExpenseChart data={transactions} />
+              </CardContent>
+           </Card>
         </div>
         <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight mb-4">Running EMIs</h2>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Manage Budget</CardTitle>
+                <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">
+                  Set your monthly budget to track your spending and stay on top of your finances.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Running EMIs</CardTitle>
+                 <AddEmiDialog 
+                    key={`emi-${editingEmi?.id || 'new'}`}
+                    onAddOrUpdateEmi={handleAddOrUpdateEmi}
+                    existingEmi={editingEmi}
+                    onClose={() => setEditingEmi(null)}
+                  />
+              </CardHeader>
+              <CardContent>
                <EmiTable 
                 emis={emis} 
                 onEdit={setEditingEmi}
                 onDelete={(id) => openDeleteDialog(id, 'emi')}
                />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight mb-4">Autopay Subscriptions</h2>
+              </CardContent>
+            </Card>
+
+            <Card>
+               <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Autopay</CardTitle>
+                 <AddAutopayDialog 
+                    key={`autopay-${editingAutopay?.id || 'new'}`}
+                    onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
+                    existingAutopay={editingAutopay}
+                    onClose={() => setEditingAutopay(null)}
+                  />
+              </CardHeader>
+              <CardContent>
                <AutopayTable 
                 autopays={autopays} 
                 onEdit={setEditingAutopay}
                 onDelete={(id) => openDeleteDialog(id, 'autopay')}
                />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight mb-4">Expense Analysis</h2>
-              <ExpenseChart data={transactions} />
-            </div>
-             <div>
-              <h2 className="text-2xl font-bold tracking-tight mb-4">Data Management</h2>
-              <div className="grid grid-cols-2 gap-4">
+              </CardContent>
+            </Card>
+            
+             <Card>
+              <CardHeader>
+                <CardTitle>Data Management</CardTitle>
+                <CardDescription>Export your data or clear it to start fresh.</CardDescription>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
                   <Button variant="outline" onClick={handleExportJson}>
                     <FileJson className="mr-2 h-4 w-4" />
                     Export JSON
@@ -395,8 +431,8 @@ export default function DashboardPage() {
                       <Trash2 className="mr-2 h-4 w-4" />
                       Clear All Data
                   </Button>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
         </div>
       </div>
 

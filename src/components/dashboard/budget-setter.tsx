@@ -39,9 +39,8 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <Edit className="mr-2 h-4 w-4"/>
-          Set Budget
+        <Button variant="ghost" size="icon">
+          <Edit className="h-4 w-4"/>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">

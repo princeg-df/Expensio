@@ -93,9 +93,8 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {!existingEmi && (
         <DialogTrigger asChild>
-            <Button variant="outline">
-                <Landmark className="mr-2 h-4 w-4"/>
-                Add Running EMI
+            <Button variant="ghost" size="icon">
+                <Landmark className="h-4 w-4"/>
             </Button>
         </DialogTrigger>
       )}
@@ -152,7 +151,7 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
               name="paymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Monthly Payment Day</FormLabel>
+                  <FormLabel>Next Payment Day</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>

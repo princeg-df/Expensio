@@ -4,7 +4,7 @@ import { FinSightLogo } from '@/components/finsight-logo';
 
 export default function LoginPage() {
   return (
-    <div className="flex w-full max-w-sm flex-col items-center space-y-6">
+    <div className="flex w-full flex-col items-center space-y-6">
       <FinSightLogo />
       <div className="w-full text-center">
         <h1 className="text-2xl font-bold">Welcome Back</h1>

@@ -14,17 +14,8 @@ export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
   const sortedEmis = [...emis].sort((a, b) => a.paymentDate.seconds - b.paymentDate.seconds);
 
   return (
-    <Card>
+    <Card className="bg-transparent border-none shadow-none">
       <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Name</TableHead>
-            <TableHead>Payment Date</TableHead>
-            <TableHead>Months Left</TableHead>
-            <TableHead>Amount</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
         <TableBody>
           {sortedEmis.length === 0 ? (
             <TableRow>
@@ -35,26 +26,16 @@ export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
           ) : (
             sortedEmis.map((emi) => {
                 return (
-              <TableRow key={emi.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <span>{emi.name}</span>
-                  </div>
+              <TableRow key={emi.id} className="border-b-0">
+                <TableCell className="font-medium p-2">
+                  {emi.name} ({emi.monthsRemaining} left)
                 </TableCell>
-                <TableCell>
-                  {new Date(emi.paymentDate.seconds * 1000).toLocaleDateString(undefined, { day: 'numeric' })}
-                </TableCell>
-                <TableCell>
-                  {emi.monthsRemaining}
-                </TableCell>
-                <TableCell>
+                <TableCell className="text-right p-2">
                   &#8377;{emi.amount.toFixed(2)}
-                </TableCell>
-                <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(emi)}>
+                   <Button variant="ghost" size="icon" onClick={() => onEdit(emi)} className="ml-2 h-7 w-7">
                         <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)} className="h-7 w-7">
                         <Trash2 className="h-4 w-4" />
                     </Button>
                 </TableCell>
