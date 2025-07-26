@@ -354,7 +354,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                 <div className="flex items-center gap-2">
                    <Avatar className="h-10 w-10">
                     <AvatarImage src={`https://avatar.vercel.sh/${user.email}.png`} alt={user.email ?? ''} />
-                     <AvatarFallback style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>
+                     <AvatarFallback className="bg-neutral-800 text-white">
                        {user.email?.[0].toUpperCase()}
                      </AvatarFallback>
                   </Avatar>
