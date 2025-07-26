@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
+import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -293,12 +293,12 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard 
-          icon={ArrowUp} 
+          icon={CircleDollarSign} 
           title="Monthly Budget" 
           value={budget} 
           action={<BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />} 
         />
-        <SummaryCard icon={ArrowDown} title="Total Expenses" value={totalExpenses} />
+        <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
         <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
         <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
@@ -381,3 +381,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
