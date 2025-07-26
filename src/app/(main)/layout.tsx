@@ -333,7 +333,7 @@ export default function MainLayout({
     <TooltipProvider>
     <div className="relative min-h-screen w-full bg-background font-body">
        <div 
-        className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%] animate-gradient"
+        className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%]"
       />
       <div className="flex flex-col">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 md:px-8 backdrop-blur-sm sticky top-0 z-10">
