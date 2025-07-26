@@ -7,6 +7,7 @@ import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { addMonths } from 'date-fns';
+import { getFinancialAdvice } from '@/ai/flows/get-financial-advice';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -17,11 +18,13 @@ import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
 import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
+import { AdviceCard } from '@/components/dashboard/advice-card';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle, Edit, Lightbulb } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -31,6 +34,7 @@ type DeletionInfo = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -46,6 +50,9 @@ export default function DashboardPage() {
   const [editingAutopay, setEditingAutopay] = useState<Autopay | null>(null);
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
+  
+  const [advice, setAdvice] = useState<{ advice: string } | null>(null);
+  const [isAdviceLoading, setIsAdviceLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -236,6 +243,32 @@ export default function DashboardPage() {
     return transactions.filter(t => t.type === activeFilter);
   }, [transactions, activeFilter]);
 
+  const handleGetAdvice = async () => {
+    if(!user) return;
+    setIsAdviceLoading(true);
+    try {
+        const serializableTransactions = transactions.map(t => ({...t, date: t.date.toDate().toISOString()}));
+        const serializableEmis = emis.map(e => ({...e, paymentDate: e.paymentDate.toDate().toISOString()}));
+        const serializableAutopays = autopays.map(a => ({...a, paymentDate: a.paymentDate.toDate().toISOString()}));
+
+        const result = await getFinancialAdvice({
+            budget,
+            transactions: serializableTransactions,
+            emis: serializableEmis,
+            autopays: serializableAutopays,
+        });
+        setAdvice(result);
+    } catch(e) {
+        console.error(e);
+        toast({
+            variant: "destructive",
+            title: "AI Error",
+            description: "Could not get financial advice. Please try again later."
+        })
+    } finally {
+        setIsAdviceLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -322,15 +355,34 @@ export default function DashboardPage() {
         </div>
         <div className="space-y-6">
             <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div>
+                  <CardTitle>Financial Advice</CardTitle>
+                  <CardDescription>AI-powered tips for you.</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={handleGetAdvice} disabled={isAdviceLoading}>
+                  <Lightbulb className="h-4 w-4"/>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <AdviceCard advice={advice} isLoading={isAdviceLoading} />
+              </CardContent>
+            </Card>
+
+            <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Manage Budget</CardTitle>
+                <div className="grid gap-1">
+                  <CardTitle>Manage Budget</CardTitle>
+                </div>
                 <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
               </CardHeader>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Running EMIs</CardTitle>
+                 <div className="grid gap-1">
+                    <CardTitle>Running EMIs</CardTitle>
+                </div>
                  <Button variant="ghost" size="icon" onClick={() => setIsAddEmiOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>
@@ -344,7 +396,9 @@ export default function DashboardPage() {
 
             <Card>
                <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Autopay</CardTitle>
+                <div className="grid gap-1">
+                  <CardTitle>Autopay</CardTitle>
+                </div>
                 <Button variant="ghost" size="icon" onClick={() => setIsAddAutopayOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>

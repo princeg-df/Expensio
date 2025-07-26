@@ -10,6 +10,7 @@ import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp } from '
 import { FinSightLogo } from '@/components/finsight-logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
+import { getFinancialAdvice } from '@/ai/flows/get-financial-advice';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -155,69 +156,109 @@ export default function MainLayout({
       const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
       const autopaysSnapshot = await getDocs(autopaysQuery);
       const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
-
+      
+      const userDocRef = doc(db, `users/${user.uid}`);
+      const userDocSnap = await getDoc(userDocRef);
+      const budget = userDocSnap.exists() ? userDocSnap.data().budget : 0;
+      
       const docPdf = new jsPDF();
       
+      // Title
+      docPdf.setFontSize(22);
       docPdf.text("FinSight Financial Report", 14, 22);
       docPdf.setFontSize(12);
       docPdf.text(`Report for: ${user.email}`, 14, 30);
       docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
+      
+      let lastTableY = 40;
+
+      // AI Advice
+      try {
+        const serializableTransactions = transactions.map(t => ({...t, date: t.date.toISOString() } as any));
+        const serializableEmis = emis.map(e => ({...e, paymentDate: e.paymentDate.toISOString()} as any));
+        const serializableAutopays = autopays.map(a => ({...a, paymentDate: a.paymentDate.toISOString()} as any));
+        
+        const advice = await getFinancialAdvice({
+            budget,
+            transactions: serializableTransactions,
+            emis: serializableEmis,
+            autopays: serializableAutopays,
+        });
+
+        docPdf.setFontSize(16);
+        docPdf.text("AI Financial Advice", 14, lastTableY + 10);
+        docPdf.setFontSize(10);
+        const adviceText = docPdf.splitTextToSize(advice.advice, 180); // 180 is width of text block
+        docPdf.text(adviceText, 14, lastTableY + 18);
+        lastTableY = docPdf.getTextDimensions(adviceText).h + lastTableY + 22;
+
+      } catch (e) {
+          // Could not get advice, just continue
+          console.error("Could not get AI advice for PDF", e);
+      }
+
 
       // Transactions
-      autoTable(docPdf, {
-        startY: 45,
-        head: [['Date', 'Type', 'Category', 'Amount']],
-        body: transactions.map(t => [
-          t.date.toLocaleDateString(),
-          t.type,
-          t.category,
-          t.amount.toFixed(2),
-        ]),
-        headStyles: { fillColor: [33, 150, 243] },
-        didDrawPage: (data) => {
-          docPdf.setFontSize(18);
-          docPdf.text('Transactions', 14, data.settings.margin.top - 10);
-        }
-      });
+      if(transactions.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 10,
+            head: [['Date', 'Type', 'Category', 'Amount']],
+            body: transactions.map(t => [
+            t.date.toLocaleDateString(),
+            t.type,
+            t.category,
+            t.amount.toFixed(2),
+            ]),
+            headStyles: { fillColor: [33, 150, 243] },
+            didDrawPage: (data) => {
+              docPdf.setFontSize(18);
+              docPdf.text('Transactions', 14, data.settings.margin.top);
+            }
+        });
+        lastTableY = (docPdf as any).lastAutoTable.finalY;
+      }
       
-      let lastTableY = (docPdf as any).lastAutoTable.finalY || 45;
-
       // EMIs
-      autoTable(docPdf, {
-        startY: lastTableY + 20,
-        head: [['Name', 'Amount', 'Months Remaining', 'Next Payment']],
-        body: emis.map(e => [
-          e.name,
-          e.amount.toFixed(2),
-          e.monthsRemaining,
-          e.paymentDate.toLocaleDateString(),
-        ]),
-        headStyles: { fillColor: [33, 150, 243] },
-        didDrawPage: (data) => {
-           docPdf.setFontSize(18);
-           docPdf.text('Running EMIs', 14, data.settings.margin.top - 10);
-        }
-      });
-
-      lastTableY = (docPdf as any).lastAutoTable.finalY || lastTableY;
+      if(emis.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 15,
+            head: [['Name', 'Amount', 'Months Remaining', 'Next Payment']],
+            body: emis.map(e => [
+            e.name,
+            e.amount.toFixed(2),
+            e.monthsRemaining,
+            e.paymentDate.toLocaleDateString(),
+            ]),
+            headStyles: { fillColor: [33, 150, 243] },
+            didDrawPage: (data) => {
+               if(data.pageNumber > 1) return;
+               docPdf.setFontSize(18);
+               docPdf.text('Running EMIs', 14, lastTableY + 10);
+            }
+        });
+        lastTableY = (docPdf as any).lastAutoTable.finalY;
+      }
 
       // Autopays
-       autoTable(docPdf, {
-        startY: lastTableY + 20,
-        head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
-        body: autopays.map(a => [
-          a.name,
-          a.category,
-          a.frequency,
-          a.amount.toFixed(2),
-          a.paymentDate.toLocaleDateString(),
-        ]),
-        headStyles: { fillColor: [33, 150, 243] },
-        didDrawPage: (data) => {
-           docPdf.setFontSize(18);
-           docPdf.text('Autopay', 14, data.settings.margin.top - 10);
-        }
-      });
+       if(autopays.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 15,
+            head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
+            body: autopays.map(a => [
+            a.name,
+            a.category,
+            a.frequency,
+            a.amount.toFixed(2),
+            a.paymentDate.toLocaleDateString(),
+            ]),
+            headStyles: { fillColor: [33, 150, 243] },
+            didDrawPage: (data) => {
+              if(data.pageNumber > 1) return;
+               docPdf.setFontSize(18);
+               docPdf.text('Autopay', 14, lastTableY + 10);
+            }
+        });
+       }
 
       docPdf.save('finsight_report.pdf');
 

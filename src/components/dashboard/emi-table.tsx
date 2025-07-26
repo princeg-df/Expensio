@@ -12,36 +12,39 @@ type EmiTableProps = {
 
 export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
   const sortedEmis = [...emis].sort((a, b) => a.paymentDate.seconds - b.paymentDate.seconds);
+  
+  if (sortedEmis.length === 0) {
+    return (
+        <div className="flex items-center justify-center h-24">
+            <p className="text-sm text-muted-foreground">No running EMIs.</p>
+        </div>
+    )
+  }
 
   return (
-    <Card className="bg-transparent border-none shadow-none">
+    <Card className="bg-transparent border-none shadow-none -mt-4">
       <Table>
         <TableBody>
-          {sortedEmis.length === 0 ? (
-            <TableRow>
-              <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                No running EMIs.
+          {sortedEmis.map((emi) => {
+              return (
+            <TableRow key={emi.id} className="border-b-0">
+              <TableCell className="font-medium p-2">
+                {emi.name}
+                <p className="text-xs text-muted-foreground">{emi.monthsRemaining} months left</p>
               </TableCell>
-            </TableRow>
-          ) : (
-            sortedEmis.map((emi) => {
-                return (
-              <TableRow key={emi.id} className="border-b-0">
-                <TableCell className="font-medium p-2">
-                  {emi.name} ({emi.monthsRemaining} left)
-                </TableCell>
-                <TableCell className="text-right p-2">
-                  &#8377;{emi.amount.toFixed(2)}
-                   <Button variant="ghost" size="icon" onClick={() => onEdit(emi)} className="ml-2 h-7 w-7">
+              <TableCell className="text-right p-2 align-top">
+                &#8377;{emi.amount.toFixed(2)}
+                 <div className="flex justify-end mt-1">
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(emi)} className="ml-2 h-7 w-7">
                         <Pencil className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)} className="h-7 w-7">
+                    <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)} className="h-7 w-7 text-destructive hover:text-destructive">
                         <Trash2 className="h-4 w-4" />
                     </Button>
-                </TableCell>
-              </TableRow>
-            )})
-          )}
+                </div>
+              </TableCell>
+            </TableRow>
+          )})}
         </TableBody>
       </Table>
     </Card>
