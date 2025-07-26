@@ -11,7 +11,7 @@ type SummaryCardProps = {
 
 export function SummaryCard({ icon: Icon, title, value, isCurrency = true }: SummaryCardProps) {
   const formattedValue = isCurrency
-    ? `₹ ${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    ? `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     : value.toLocaleString();
 
   return (
@@ -21,7 +21,7 @@ export function SummaryCard({ icon: Icon, title, value, isCurrency = true }: Sum
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold" dangerouslySetInnerHTML={{ __html: formattedValue.replace('₹', '&#8377;') }}></div>
+        <div className="text-2xl font-bold">{formattedValue}</div>
       </CardContent>
     </Card>
   );

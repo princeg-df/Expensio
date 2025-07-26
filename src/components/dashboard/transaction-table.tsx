@@ -64,7 +64,8 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                 <TableCell>
                   {new Date(transaction.date.seconds * 1000).toLocaleDateString()}
                 </TableCell>
-                <TableCell className="text-right" dangerouslySetInnerHTML={{ __html: `&#8377;${transaction.amount.toFixed(2)}`}}>
+                <TableCell className="text-right">
+                  ₹{transaction.amount.toFixed(2)}
                 </TableCell>
               </TableRow>
             )})
