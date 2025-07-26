@@ -4,77 +4,77 @@
 
 @layer base {
   :root {
-    --background: 28 55% 92%; /* Pale Cream Background */
-    --foreground: 0 0% 17%;   /* Slate Text */
+    --background: 0 0% 10%;      /* Charcoal Gray */
+    --foreground: 0 0% 96%;        /* Soft White Text */
     
-    --card: 28 55% 96%; /* Lighter cream for cards */
-    --card-foreground: 0 0% 17%;
+    --card: 0 0% 10%;              /* Charcoal Gray */
+    --card-foreground: 0 0% 96%;   /* Soft White Text */
     
-    --popover: 28 55% 96%;
-    --popover-foreground: 0 0% 17%;
+    --popover: 0 0% 5%;            /* Rich Black */
+    --popover-foreground: 0 0% 96%;
     
-    --primary: 216 68% 12%;      /* Deep Navy Blue */
-    --primary-foreground: 28 55% 92%; /* Pale Cream text on primary */
+    --primary: 45 63% 52%;         /* Royal Gold */
+    --primary-foreground: 0 0% 5%;  /* Rich Black on primary */
     
-    --secondary: 28 55% 92%;   /* Pale Cream Background */
-    --secondary-foreground: 216 68% 12%; /* Navy text on secondary */
+    --secondary: 0 0% 15%;         /* Slightly lighter charcoal */
+    --secondary-foreground: 0 0% 96%;
     
-    --muted: 28 55% 95%; /* Lighter cream */
-    --muted-foreground: 0 0% 40%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
     
-    --accent: 350 31% 58%;       /* Rose Gold */
-    --accent-foreground: 0 0% 100%; /* White text on accent */
+    --accent: 51 100% 50%;         /* Bright Gold Highlight */
+    --accent-foreground: 0 0% 5%;
     
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 28 40% 88%;
-    --input: 28 40% 88%;
-    --ring: 350 31% 58%; /* Rose gold for rings */
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 45 63% 52%;            /* Royal Gold for rings */
     
-    --chart-1: 350 31% 58%; /* Rose Gold */
-    --chart-2: 216 68% 25%; /* Lighter Navy */
-    --chart-3: 350 31% 70%; /* Lighter Rose Gold */
-    --chart-4: 216 68% 40%;
-    --chart-5: 350 31% 80%;
+    --chart-1: 45 63% 52%;
+    --chart-2: 45 63% 62%;
+    --chart-3: 51 100% 50%;
+    --chart-4: 51 100% 60%;
+    --chart-5: 45 63% 72%;
     
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 216 68% 10%;
-    --foreground: 28 55% 92%;
+    --background: 0 0% 10%;      /* Charcoal Gray */
+    --foreground: 0 0% 96%;        /* Soft White Text */
     
-    --card: 216 68% 15%;
-    --card-foreground: 28 55% 92%;
+    --card: 0 0% 10%;              /* Charcoal Gray */
+    --card-foreground: 0 0% 96%;   /* Soft White Text */
     
-    --popover: 216 68% 10%;
-    --popover-foreground: 28 55% 92%;
-
-    --primary: 350 31% 58%;       /* Rose Gold */
-    --primary-foreground: 216 68% 10%;
+    --popover: 0 0% 5%;            /* Rich Black */
+    --popover-foreground: 0 0% 96%;
     
-    --secondary: 216 68% 20%;
-    --secondary-foreground: 28 55% 92%;
+    --primary: 45 63% 52%;         /* Royal Gold */
+    --primary-foreground: 0 0% 5%;  /* Rich Black on primary */
     
-    --muted: 216 68% 25%;
-    --muted-foreground: 28 55% 70%;
+    --secondary: 0 0% 15%;         /* Slightly lighter charcoal */
+    --secondary-foreground: 0 0% 96%;
     
-    --accent: 350 31% 65%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 65%;
+    
+    --accent: 51 100% 50%;         /* Bright Gold Highlight */
+    --accent-foreground: 0 0% 5%;
     
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 216 68% 25%;
-    --input: 216 68% 25%;
-    --ring: 350 31% 58%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 45 63% 52%;
     
-    --chart-1: 350 31% 58%;
-    --chart-2: 216 68% 35%;
-    --chart-3: 350 31% 70%;
-    --chart-4: 216 68% 50%;
-    --chart-5: 350 31% 80%;
+    --chart-1: 45 63% 52%;
+    --chart-2: 45 63% 62%;
+    --chart-3: 51 100% 50%;
+    --chart-4: 51 100% 60%;
+    --chart-5: 45 63% 72%;
   }
 }
 

@@ -182,7 +182,7 @@ export default function MainLayout({
             t.category,
             t.amount.toFixed(2),
             ]),
-            headStyles: { fillColor: [33, 150, 243] },
+            headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => {
               docPdf.setFontSize(18);
               docPdf.text('Transactions', 14, data.settings.margin.top);
@@ -202,7 +202,7 @@ export default function MainLayout({
             e.monthsRemaining,
             e.paymentDate.toLocaleDateString(),
             ]),
-            headStyles: { fillColor: [33, 150, 243] },
+            headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => {
                if(data.pageNumber > 1) return;
                docPdf.setFontSize(18);
@@ -224,7 +224,7 @@ export default function MainLayout({
             a.amount.toFixed(2),
             a.paymentDate.toLocaleDateString(),
             ]),
-            headStyles: { fillColor: [33, 150, 243] },
+            headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => {
               if(data.pageNumber > 1) return;
                docPdf.setFontSize(18);
@@ -332,10 +332,10 @@ export default function MainLayout({
     <>
     <div className="relative min-h-screen w-full bg-background font-body">
        <div 
-        className="fixed inset-0 z-[-1] bg-gradient-to-br from-blue-100 via-green-50 to-gray-50 bg-[length:400%_400%] animate-gradient"
+        className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%] animate-gradient"
       />
       <div className="flex flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-card/80 px-4 md:px-8 backdrop-blur-sm sticky top-0 z-10">
+        <header className="flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 md:px-8 backdrop-blur-sm sticky top-0 z-10">
             <div>
                 <FinSightLogo />
             </div>

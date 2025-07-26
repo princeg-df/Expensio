@@ -22,7 +22,7 @@ export default function RootPage() {
   return (
     <div className="flex h-screen items-center justify-center bg-background">
       <div 
-        className="fixed inset-0 z-[-1] bg-gradient-to-br from-blue-100 via-green-50 to-gray-50 bg-[length:400%_400%] animate-gradient"
+        className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%] animate-gradient"
       />
       <Loader2 className="h-16 w-16 animate-spin text-primary" />
     </div>
