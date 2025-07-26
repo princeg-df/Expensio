@@ -20,7 +20,7 @@ export default function RootPage() {
   }, [user, loading, router]);
 
   return (
-    <div className="flex h-screen items-center justify-center bg-background">
+    <div className="flex h-screen w-screen items-center justify-center bg-background">
       <div 
         className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%]"
       />
