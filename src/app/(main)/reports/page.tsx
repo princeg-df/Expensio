@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SummaryCard } from '@/components/dashboard/summary-card';
-import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, Loader2 } from 'lucide-react';
+import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 import { cn } from '@/lib/utils';
 
 type FinancialEvent = {
@@ -206,7 +207,7 @@ export default function ReportsPage() {
   if (authLoading || loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <Loader />
       </div>
     );
   }

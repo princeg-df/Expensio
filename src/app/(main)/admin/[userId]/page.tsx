@@ -11,7 +11,8 @@ import type { Transaction, Emi, Autopay } from '@/lib/types';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, ShieldAlert, CircleDollarSign } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
+import { ArrowLeft, ShieldAlert, CircleDollarSign } from 'lucide-react';
 import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
@@ -85,7 +86,7 @@ export default function UserDetailPage() {
   if (authLoading || loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <Loader />
       </div>
     );
   }

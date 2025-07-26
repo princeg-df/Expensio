@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { auth } from '@/lib/firebase';
-import { Loader2 } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -82,7 +82,7 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {loading && <Loader iconClassName="h-4 w-4 mr-2" />}
           Log In
         </Button>
       </form>

@@ -87,3 +87,13 @@
     min-height: 100vh;
   }
 }
+
+.loader-icon {
+  color: hsl(var(--primary));
+  animation: flicker 1.2s infinite ease-in-out;
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}

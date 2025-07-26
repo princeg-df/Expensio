@@ -20,7 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader2 } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 
 const formSchema = z.object({
   currentPassword: z.string().min(1, 'Please enter your current password.'),
@@ -117,7 +117,7 @@ export function ChangePasswordDialog({ isOpen, onOpenChange }: ChangePasswordDia
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {loading && <Loader iconClassName="h-4 w-4 mr-2" />}
                 Change Password
               </Button>
             </DialogFooter>
@@ -127,4 +127,3 @@ export function ChangePasswordDialog({ isOpen, onOpenChange }: ChangePasswordDia
     </Dialog>
   );
 }
-

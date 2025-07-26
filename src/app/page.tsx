@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/app-provider';
-import { Loader2 } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 
 export default function RootPage() {
   const { user, loading } = useAuth();
@@ -24,7 +24,7 @@ export default function RootPage() {
       <div 
         className="fixed inset-0 z-[-1] bg-gradient-to-br from-secondary via-background to-background bg-[length:400%_400%]"
       />
-      <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      <Loader />
     </div>
   );
 }

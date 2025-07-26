@@ -7,7 +7,7 @@ import { useAuth } from '@/providers/app-provider';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, Loader2, ShieldAlert, Trash2 } from 'lucide-react';
+import { ArrowRight, ShieldAlert, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { Loader } from '@/components/ui/loader';
 
 type AppUser = {
   id: string;
@@ -99,7 +100,7 @@ export default function AdminPage() {
   if (authLoading || loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <Loader />
       </div>
     );
   }

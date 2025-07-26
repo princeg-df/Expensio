@@ -21,8 +21,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { Loader } from '@/components/ui/loader';
 
-import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit, Loader2 } from 'lucide-react';
+import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -242,7 +243,7 @@ export default function DashboardPage() {
   if (authLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        <Loader />
       </div>
     );
   }
