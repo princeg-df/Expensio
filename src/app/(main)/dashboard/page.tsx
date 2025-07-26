@@ -21,7 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -387,5 +387,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
