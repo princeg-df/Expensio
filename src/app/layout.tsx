@@ -4,7 +4,7 @@ import { AppProvider } from '@/providers/app-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'FinSight',
+  title: 'Expensio',
   description: 'Your personal finance companion.',
 };
 

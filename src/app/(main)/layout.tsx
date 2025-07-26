@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp } from 'firebase/firestore';
-import { FinSightLogo } from '@/components/finsight-logo';
+import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
 import {
@@ -120,7 +120,7 @@ export default function MainLayout({
         const dataStr = JSON.stringify(dataToExport, null, 2);
         const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
 
-        const exportFileDefaultName = 'finsight_data.json';
+        const exportFileDefaultName = 'expensio_data.json';
 
         const linkElement = document.createElement('a');
         linkElement.setAttribute('href', dataUri);
@@ -164,7 +164,7 @@ export default function MainLayout({
       
       // Title
       docPdf.setFontSize(22);
-      docPdf.text("FinSight Financial Report", 14, 22);
+      docPdf.text("Expensio Financial Report", 14, 22);
       docPdf.setFontSize(12);
       docPdf.text(`Report for: ${user.email}`, 14, 30);
       docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
@@ -233,7 +233,7 @@ export default function MainLayout({
         });
        }
 
-      docPdf.save('finsight_report.pdf');
+      docPdf.save('expensio_report.pdf');
 
        toast({
             title: "Export Successful",
@@ -337,7 +337,7 @@ export default function MainLayout({
       <div className="flex flex-col">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 md:px-8 backdrop-blur-sm sticky top-0 z-10">
             <div>
-                <FinSightLogo />
+                <ExpensioLogo />
             </div>
             {user && (
             <div className="flex items-center gap-2">
