@@ -57,6 +57,7 @@ export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
     defaultValues: {
       name: '',
       amount: 0,
+      paymentDate: new Date(),
       category: 'Subscription',
       frequency: 'Monthly',
     },

@@ -58,7 +58,7 @@ export default function DashboardPage() {
     });
 
     const userDocRef = doc(db, `users/${user.uid}`);
-    getDoc(userDocRef).then((docSnap) => {
+    const userUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setBudget(docSnap.data().budget || 0);
       }
@@ -68,6 +68,7 @@ export default function DashboardPage() {
       transactionsUnsubscribe();
       emisUnsubscribe();
       autopaysUnsubscribe();
+      userUnsubscribe();
     }
   }, [user]);
 
@@ -101,27 +102,32 @@ export default function DashboardPage() {
     if (!user) return;
     await addDoc(collection(db, `users/${user.uid}/autopays`), {
       ...data,
-      paymentDate: Timestamp.fromDate(data.paymentDate),
+      paymentDate: Timestamp.fromDate(data.date),
       amount: Number(data.amount),
     });
   };
 
   const { totalIncome, totalExpenses, totalFixedPayments, balance } = useMemo(() => {
-    const totalIncome = transactions
+    const income = transactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
-    const totalExpenses = transactions
+
+    const expenses = transactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-    const totalEmis = emis
-      .reduce((sum, t) => sum + t.amount, 0);
-    const totalAutopays = autopays
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const totalFixedPayments = totalEmis + totalAutopays;
-    const balance = totalIncome - totalExpenses - totalFixedPayments;
 
-    return { totalIncome, totalExpenses, totalFixedPayments, balance };
+    const emisAmount = emis.reduce((sum, t) => sum + t.amount, 0);
+    
+    const autopaysAmount = autopays.reduce((sum, t) => sum + t.amount, 0);
+    
+    const fixed = emisAmount + autopaysAmount;
+
+    return { 
+      totalIncome: income, 
+      totalExpenses: expenses + fixed,
+      totalFixedPayments: fixed,
+      balance: income - expenses - fixed,
+    };
   }, [transactions, emis, autopays]);
 
   const filteredTransactions = useMemo(() => {
