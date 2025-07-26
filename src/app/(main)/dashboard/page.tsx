@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
@@ -22,7 +22,7 @@ import { BudgetSetter } from '@/components/dashboard/budget-setter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, Download, FileJson } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, FileJson, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type DeletionInfo = {
@@ -46,84 +46,99 @@ export default function DashboardPage() {
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
+
+  const fetchData = useCallback(async (showToast = false) => {
+    if (!user) return;
+    setIsRefreshing(true);
+
+    const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+    const transactionsSnapshot = await getDocs(transactionsQuery);
+    const transactionsData: Transaction[] = [];
+    transactionsSnapshot.forEach((doc) => {
+      transactionsData.push({ id: doc.id, ...doc.data() } as Transaction);
+    });
+    setTransactions(transactionsData);
+
+    const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+    const emisSnapshot = await getDocs(emisQuery);
+    const emisData: Emi[] = [];
+    const batch = writeBatch(db);
+    const currentDate = new Date();
+    let hasUpdates = false;
+
+    emisSnapshot.forEach((doc) => {
+      let emi = { id: doc.id, ...doc.data() } as Emi;
+      const paymentDate = emi.paymentDate.toDate();
+
+      if (paymentDate < currentDate) {
+          let monthsPassed = 0;
+          let nextPaymentDate = paymentDate;
+
+          while(nextPaymentDate < currentDate) {
+            monthsPassed++;
+            nextPaymentDate = addMonths(nextPaymentDate, 1);
+          }
+          
+          const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
+
+          if (newMonthsRemaining <= 0) {
+              batch.delete(doc.ref);
+              hasUpdates = true;
+          } else {
+              emi.monthsRemaining = newMonthsRemaining;
+              emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
+              batch.update(doc.ref, { 
+                  monthsRemaining: newMonthsRemaining,
+                  paymentDate: Timestamp.fromDate(nextPaymentDate)
+              });
+              hasUpdates = true;
+              emisData.push(emi);
+          }
+      } else {
+          emisData.push(emi);
+      }
+    });
+    
+    if(hasUpdates) {
+        await batch.commit();
+    }
+    setEmis(emisData);
+
+    const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+    const autopaysSnapshot = await getDocs(autopaysQuery);
+    const autopaysData: Autopay[] = [];
+    autopaysSnapshot.forEach((doc) => {
+      autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
+    });
+    setAutopays(autopaysData);
+
+    const userDocRef = doc(db, `users/${user.uid}`);
+    const userDocSnap = await getDoc(userDocRef);
+    if (userDocSnap.exists()) {
+      setBudget(userDocSnap.data().budget || 0);
+    }
+
+    setIsRefreshing(false);
+    if (showToast) {
+      toast({
+        title: "Data Refreshed",
+        description: "Your financial data is up-to-date.",
+      });
+    }
+  }, [user, toast]);
+
 
   useEffect(() => {
     if (!user) return;
 
-    const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
-    const transactionsUnsubscribe = onSnapshot(transactionsQuery, (querySnapshot) => {
-      const transactionsData: Transaction[] = [];
-      querySnapshot.forEach((doc) => {
-        transactionsData.push({ id: doc.id, ...doc.data() } as Transaction);
-      });
-      setTransactions(transactionsData);
-    });
+    fetchData(); // Initial fetch
 
-    const emisQuery = query(collection(db, `users/${user.uid}/emis`));
-    const emisUnsubscribe = onSnapshot(emisQuery, (querySnapshot) => {
-      const emisData: Emi[] = [];
-      const batch = writeBatch(db);
-      const currentDate = new Date();
-      let hasUpdates = false;
-
-      querySnapshot.forEach((doc) => {
-        let emi = { id: doc.id, ...doc.data() } as Emi;
-        const paymentDate = emi.paymentDate.toDate();
-
-        if (paymentDate < currentDate) {
-            let monthsPassed = 0;
-            let nextPaymentDate = paymentDate;
-
-            while(nextPaymentDate < currentDate) {
-              monthsPassed++;
-              nextPaymentDate = addMonths(nextPaymentDate, 1);
-            }
-            
-            const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
-
-            if (newMonthsRemaining <= 0) {
-                batch.delete(doc.ref);
-                hasUpdates = true;
-            } else {
-                emi.monthsRemaining = newMonthsRemaining;
-                emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
-                batch.update(doc.ref, { 
-                    monthsRemaining: newMonthsRemaining,
-                    paymentDate: Timestamp.fromDate(nextPaymentDate)
-                });
-                hasUpdates = true;
-                emisData.push(emi);
-            }
-        } else {
-            emisData.push(emi);
-        }
-      });
-      
-      if(hasUpdates) {
-          batch.commit().catch(console.error);
-      }
-      
-      setEmis(emisData);
-    });
-
-    const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
-    const autopaysUnsubscribe = onSnapshot(autopaysQuery, (querySnapshot) => {
-      const autopaysData: Autopay[] = [];
-      querySnapshot.forEach((doc) => {
-        autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
-      });
-      setAutopays(autopaysData);
-    });
-
-    const userDocRef = doc(db, `users/${user.uid}`);
-    const userUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setBudget(docSnap.data().budget || 0);
-      } else {
-        setDoc(userDocRef, { budget: 0 }, { merge: true });
-      }
-    });
+    const transactionsUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/transactions`)), () => fetchData());
+    const emisUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/emis`)), () => fetchData());
+    const autopaysUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/autopays`)), () => fetchData());
+    const userUnsubscribe = onSnapshot(doc(db, `users/${user.uid}`), () => fetchData());
 
     return () => {
       transactionsUnsubscribe();
@@ -131,7 +146,7 @@ export default function DashboardPage() {
       autopaysUnsubscribe();
       userUnsubscribe();
     }
-  }, [user]);
+  }, [user, fetchData]);
 
   const handleSetBudget = async (newBudget: number) => {
     if (!user) return;
@@ -300,6 +315,9 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+           <Button variant="ghost" size="icon" onClick={() => fetchData(true)} disabled={isRefreshing}>
+             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+           </Button>
            <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
            <AddEmiDialog 
               key={`emi-${editingEmi?.id || 'new'}`}
