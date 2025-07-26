@@ -35,6 +35,7 @@ type DeletionInfo = {
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -53,74 +54,85 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
+    setLoading(true);
+    try {
+        const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+        const transactionsSnapshot = await getDocs(transactionsQuery);
+        const transactionsData: Transaction[] = [];
+        transactionsSnapshot.forEach((doc) => {
+        transactionsData.push({ id: doc.id, ...doc.data() } as Transaction);
+        });
+        setTransactions(transactionsData);
 
-    const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
-    const transactionsSnapshot = await getDocs(transactionsQuery);
-    const transactionsData: Transaction[] = [];
-    transactionsSnapshot.forEach((doc) => {
-      transactionsData.push({ id: doc.id, ...doc.data() } as Transaction);
-    });
-    setTransactions(transactionsData);
+        const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+        const emisSnapshot = await getDocs(emisQuery);
+        const emisData: Emi[] = [];
+        const batch = writeBatch(db);
+        const currentDate = new Date();
+        let hasUpdates = false;
 
-    const emisQuery = query(collection(db, `users/${user.uid}/emis`));
-    const emisSnapshot = await getDocs(emisQuery);
-    const emisData: Emi[] = [];
-    const batch = writeBatch(db);
-    const currentDate = new Date();
-    let hasUpdates = false;
+        emisSnapshot.forEach((doc) => {
+        let emi = { id: doc.id, ...doc.data() } as Emi;
+        const paymentDate = emi.paymentDate.toDate();
 
-    emisSnapshot.forEach((doc) => {
-      let emi = { id: doc.id, ...doc.data() } as Emi;
-      const paymentDate = emi.paymentDate.toDate();
+        if (paymentDate < currentDate) {
+            let monthsPassed = 0;
+            let nextPaymentDate = paymentDate;
 
-      if (paymentDate < currentDate) {
-          let monthsPassed = 0;
-          let nextPaymentDate = paymentDate;
+            while(nextPaymentDate < currentDate) {
+                monthsPassed++;
+                nextPaymentDate = addMonths(nextPaymentDate, 1);
+            }
+            
+            const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
 
-          while(nextPaymentDate < currentDate) {
-            monthsPassed++;
-            nextPaymentDate = addMonths(nextPaymentDate, 1);
-          }
-          
-          const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
+            if (newMonthsRemaining <= 0) {
+                batch.delete(doc.ref);
+                hasUpdates = true;
+            } else {
+                emi.monthsRemaining = newMonthsRemaining;
+                emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
+                batch.update(doc.ref, { 
+                    monthsRemaining: newMonthsRemaining,
+                    paymentDate: Timestamp.fromDate(nextPaymentDate)
+                });
+                hasUpdates = true;
+                emisData.push(emi);
+            }
+        } else {
+            emisData.push(emi);
+        }
+        });
+        
+        if(hasUpdates) {
+            await batch.commit();
+        }
+        setEmis(emisData);
 
-          if (newMonthsRemaining <= 0) {
-              batch.delete(doc.ref);
-              hasUpdates = true;
-          } else {
-              emi.monthsRemaining = newMonthsRemaining;
-              emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
-              batch.update(doc.ref, { 
-                  monthsRemaining: newMonthsRemaining,
-                  paymentDate: Timestamp.fromDate(nextPaymentDate)
-              });
-              hasUpdates = true;
-              emisData.push(emi);
-          }
-      } else {
-          emisData.push(emi);
-      }
-    });
-    
-    if(hasUpdates) {
-        await batch.commit();
+        const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+        const autopaysSnapshot = await getDocs(autopaysQuery);
+        const autopaysData: Autopay[] = [];
+        autopaysSnapshot.forEach((doc) => {
+        autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
+        });
+        setAutopays(autopaysData);
+
+        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+        setBudget(userDocSnap.data().budget || 0);
+        }
+    } catch (error) {
+        console.error("Error fetching data: ", error);
+        toast({
+            variant: "destructive",
+            title: "Error fetching data",
+            description: "Could not retrieve your financial data. Please try again later.",
+        });
+    } finally {
+        setLoading(false);
     }
-    setEmis(emisData);
-
-    const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
-    const autopaysSnapshot = await getDocs(autopaysQuery);
-    const autopaysData: Autopay[] = [];
-    autopaysSnapshot.forEach((doc) => {
-      autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
-    });
-    setAutopays(autopaysData);
-
-    const userDocRef = doc(db, `users/${user.uid}`);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
-      setBudget(userDocSnap.data().budget || 0);
-    }
-  }, [user]);
+  }, [user, toast]);
 
 
   useEffect(() => {
@@ -241,9 +253,9 @@ export default function DashboardPage() {
     return transactions.filter(t => t.type === activeFilter);
   }, [transactions, activeFilter]);
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-screen items-center justify-center">
         <Loader />
       </div>
     );
