@@ -323,20 +323,14 @@ export default function DashboardPage() {
         <div className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Manage Budget</CardTitle>
-                    <CardDescription className="text-xs">Set your monthly budget.</CardDescription>
-                </div>
+                <CardTitle>Manage Budget</CardTitle>
                 <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
               </CardHeader>
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-start justify-between">
-                 <div className="flex flex-col">
-                    <CardTitle>Running EMIs</CardTitle>
-                    <CardDescription className="text-xs">Your ongoing EMIs.</CardDescription>
-                 </div>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Running EMIs</CardTitle>
                  <Button variant="ghost" size="icon" onClick={() => setIsAddEmiOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>
@@ -349,11 +343,8 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-               <CardHeader className="flex flex-row items-start justify-between">
-                <div className="flex flex-col">
-                    <CardTitle>Autopay</CardTitle>
-                    <CardDescription className="text-xs">Your recurring payments.</CardDescription>
-                </div>
+               <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Autopay</CardTitle>
                 <Button variant="ghost" size="icon" onClick={() => setIsAddAutopayOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>
