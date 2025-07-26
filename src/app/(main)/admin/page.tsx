@@ -142,7 +142,7 @@ export default function AdminPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Email</TableHead>
-                <TableHead>User Since</TableHead>
+                <TableHead className="hidden sm:table-cell">User Since</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -156,21 +156,23 @@ export default function AdminPage() {
               ) : (
                 users.map((appUser) => (
                   <TableRow key={appUser.id}>
-                    <TableCell className="font-medium">{appUser.email}</TableCell>
-                    <TableCell>
+                    <TableCell className="font-medium break-all">{appUser.email}</TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       {appUser.createdAt
                         ? appUser.createdAt.toDate().toLocaleDateString()
                         : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                       <Button asChild variant="ghost" size="sm">
-                        <Link href={`/admin/${appUser.id}`}>
-                          View <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setUserToDelete(appUser)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex justify-end items-center flex-wrap gap-x-1">
+                        <Button asChild variant="ghost" size="sm">
+                          <Link href={`/admin/${appUser.id}`}>
+                            View <ArrowRight className="ml-2 h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setUserToDelete(appUser)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
