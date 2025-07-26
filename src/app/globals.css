@@ -4,27 +4,27 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 210 40% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 210 40% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 207 82% 58%; /* Calm Blue: #64B5F6 -> HSL(207, 82%, 68%) -- made slightly darker for contrast */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 123 39% 64%; /* Muted Green: #81C784 */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --background: 210 40% 98%; /* Original light gray */
+    --foreground: 0 0% 20%; /* Balanced dark text: #333333 */
+    --card: 36 100% 98%; /* Lighter shade of primary for cards */
+    --card-foreground: 0 0% 20%;
+    --popover: 36 100% 98%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 36 100% 94%; /* Soft cream: #FFF3E0 */
+    --primary-foreground: 0 0% 20%; /* Dark text for contrast on primary */
+    --secondary: 36 100% 85%; /* Peachy beige: #FFE0B2 */
+    --secondary-foreground: 0 0% 20%; /* Dark text for contrast on secondary */
+    --muted: 36 100% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 100% 71%; /* Coral red: #FF6B6B */
+    --accent-foreground: 0 0% 100%; /* White text for contrast on accent */
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 207 82% 58%;
-    --chart-1: 207 82% 58%;
-    --chart-2: 123 39% 64%;
+    --border: 36 50% 85%;
+    --input: 36 50% 85%;
+    --ring: 0 100% 71%; /* Coral red for rings */
+    --chart-1: 0 100% 71%; /* Coral Red */
+    --chart-2: 36 100% 85%; /* Peachy Beige */
     --chart-3: 27 87% 67%;
     --chart-4: 197 37% 24%;
     --chart-5: 43 74% 66%;
@@ -32,27 +32,27 @@
   }
 
   .dark {
-    --background: 212 65% 11%;
-    --foreground: 210 40% 98%;
-    --card: 212 65% 13%;
-    --card-foreground: 210 40% 98%;
-    --popover: 212 65% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 207 82% 68%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 123 39% 64%;
-    --accent-foreground: 210 40% 98%;
+    --background: 0 0% 10%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 15%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 36 100% 85%; /* Peachy beige as primary in dark */
+    --primary-foreground: 0 0% 10%;
+    --secondary: 36 100% 94%; /* Soft cream as secondary in dark */
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 100% 71%; /* Coral red */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 207 82% 68%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
+    --border: 0 0% 25%;
+    --input: 0 0% 25%;
+    --ring: 0 100% 71%;
+    --chart-1: 0 100% 71%;
+    --chart-2: 36 100% 85%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
