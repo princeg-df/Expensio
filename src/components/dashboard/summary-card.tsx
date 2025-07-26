@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { LucideIcon } from 'lucide-react';
 
@@ -20,7 +21,7 @@ export function SummaryCard({ icon: Icon, title, value, isCurrency = true }: Sum
         <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{formattedValue}</div>
+        <div className="text-2xl font-bold" dangerouslySetInnerHTML={{ __html: formattedValue.replace('₹', '&#8377;') }}></div>
       </CardContent>
     </Card>
   );

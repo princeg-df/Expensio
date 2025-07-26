@@ -1,3 +1,4 @@
+
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card } from '@/components/ui/card';
 import type { Emi } from '@/lib/types';
@@ -43,8 +44,7 @@ export function EmiTable({ emis }: EmiTableProps) {
                 <TableCell>
                   {emi.monthsRemaining}
                 </TableCell>
-                <TableCell className="text-right">
-                ₹{emi.amount.toFixed(2)}
+                <TableCell className="text-right" dangerouslySetInnerHTML={{ __html: `&#8377;${emi.amount.toFixed(2)}` }}>
                 </TableCell>
               </TableRow>
             )})

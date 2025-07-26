@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -53,7 +54,7 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="budget" className="text-right">
-              Budget
+              Budget (₹)
             </Label>
             <Input
               id="budget"
