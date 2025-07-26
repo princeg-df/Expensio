@@ -4,58 +4,77 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* Original light gray */
-    --foreground: 0 0% 18%; /* Dark charcoal: #2D2D2D */
-    --card: 0 67% 96%; /* Lighter shade for cards, derived from primary */
-    --card-foreground: 0 0% 18%;
-    --popover: 0 67% 96%;
-    --popover-foreground: 0 0% 18%;
-    --primary: 0 80% 97%; /* Pale peach: #FDEFEF */
-    --primary-foreground: 0 0% 18%; /* Dark text for contrast on primary */
-    --secondary: 13 58% 91%; /* Warm clay: #F5E1DC */
-    --secondary-foreground: 0 0% 18%; /* Dark text for contrast on secondary */
-    --muted: 13 58% 94%; /* Lighter warm clay */
+    --background: 28 55% 92%; /* Pale Cream Background */
+    --foreground: 0 0% 17%;   /* Slate Text */
+    
+    --card: 28 55% 96%; /* Lighter cream for cards */
+    --card-foreground: 0 0% 17%;
+    
+    --popover: 28 55% 96%;
+    --popover-foreground: 0 0% 17%;
+    
+    --primary: 216 68% 12%;      /* Deep Navy Blue */
+    --primary-foreground: 28 55% 92%; /* Pale Cream text on primary */
+    
+    --secondary: 28 55% 92%;   /* Pale Cream Background */
+    --secondary-foreground: 216 68% 12%; /* Navy text on secondary */
+    
+    --muted: 28 55% 95%; /* Lighter cream */
     --muted-foreground: 0 0% 40%;
-    --accent: 7 100% 77%; /* Muted coral-pink: #FF9A8B */
-    --accent-foreground: 0 0% 100%; /* White text for contrast on accent */
+    
+    --accent: 350 31% 58%;       /* Rose Gold */
+    --accent-foreground: 0 0% 100%; /* White text on accent */
+    
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 13 50% 88%;
-    --input: 13 50% 88%;
-    --ring: 7 100% 77%; /* Muted coral-pink for rings */
-    --chart-1: 7 100% 77%; /* Muted coral-pink */
-    --chart-2: 13 58% 91%; /* Warm clay */
-    --chart-3: 27 87% 67%;
-    --chart-4: 197 37% 24%;
-    --chart-5: 43 74% 66%;
+    
+    --border: 28 40% 88%;
+    --input: 28 40% 88%;
+    --ring: 350 31% 58%; /* Rose gold for rings */
+    
+    --chart-1: 350 31% 58%; /* Rose Gold */
+    --chart-2: 216 68% 25%; /* Lighter Navy */
+    --chart-3: 350 31% 70%; /* Lighter Rose Gold */
+    --chart-4: 216 68% 40%;
+    --chart-5: 350 31% 80%;
+    
     --radius: 0.5rem;
   }
 
   .dark {
-    --background: 0 0% 10%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 15%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 7 100% 77%; /* Muted coral-pink as primary in dark */
-    --primary-foreground: 0 0% 10%;
-    --secondary: 13 58% 91%; /* Warm clay as secondary in dark */
-    --secondary-foreground: 0 0% 10%;
-    --muted: 0 0% 20%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 100% 71%; /* A fallback accent for dark mode */
+    --background: 216 68% 10%;
+    --foreground: 28 55% 92%;
+    
+    --card: 216 68% 15%;
+    --card-foreground: 28 55% 92%;
+    
+    --popover: 216 68% 10%;
+    --popover-foreground: 28 55% 92%;
+
+    --primary: 350 31% 58%;       /* Rose Gold */
+    --primary-foreground: 216 68% 10%;
+    
+    --secondary: 216 68% 20%;
+    --secondary-foreground: 28 55% 92%;
+    
+    --muted: 216 68% 25%;
+    --muted-foreground: 28 55% 70%;
+    
+    --accent: 350 31% 65%;
     --accent-foreground: 0 0% 100%;
+    
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 25%;
-    --input: 0 0% 25%;
-    --ring: 7 100% 77%;
-    --chart-1: 7 100% 77%;
-    --chart-2: 13 58% 91%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
+    
+    --border: 216 68% 25%;
+    --input: 216 68% 25%;
+    --ring: 350 31% 58%;
+    
+    --chart-1: 350 31% 58%;
+    --chart-2: 216 68% 35%;
+    --chart-3: 350 31% 70%;
+    --chart-4: 216 68% 50%;
+    --chart-5: 350 31% 80%;
   }
 }
 
