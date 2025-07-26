@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import { collection, getDocs, query, writeBatch, doc, setDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { FinSightLogo } from '@/components/finsight-logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
@@ -35,6 +35,8 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 
 export default function MainLayout({
@@ -137,6 +139,102 @@ export default function MainLayout({
         });
     }
   }
+
+  const handleExportPdf = async () => {
+    if (!user) return;
+
+    try {
+      const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+      const transactionsSnapshot = await getDocs(transactionsQuery);
+      const transactions = transactionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, date: (doc.data().date as Timestamp).toDate() }));
+
+      const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+      const emisSnapshot = await getDocs(emisQuery);
+      const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+
+      const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+      const autopaysSnapshot = await getDocs(autopaysQuery);
+      const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+
+      const docPdf = new jsPDF();
+      
+      docPdf.text("FinSight Financial Report", 14, 22);
+      docPdf.setFontSize(12);
+      docPdf.text(`Report for: ${user.email}`, 14, 30);
+      docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
+
+      // Transactions
+      autoTable(docPdf, {
+        startY: 45,
+        head: [['Date', 'Type', 'Category', 'Amount']],
+        body: transactions.map(t => [
+          t.date.toLocaleDateString(),
+          t.type,
+          t.category,
+          t.amount.toFixed(2),
+        ]),
+        headStyles: { fillColor: [33, 150, 243] },
+        didDrawPage: (data) => {
+          docPdf.setFontSize(18);
+          docPdf.text('Transactions', 14, data.settings.margin.top - 10);
+        }
+      });
+      
+      let lastTableY = (docPdf as any).lastAutoTable.finalY || 45;
+
+      // EMIs
+      autoTable(docPdf, {
+        startY: lastTableY + 20,
+        head: [['Name', 'Amount', 'Months Remaining', 'Next Payment']],
+        body: emis.map(e => [
+          e.name,
+          e.amount.toFixed(2),
+          e.monthsRemaining,
+          e.paymentDate.toLocaleDateString(),
+        ]),
+        headStyles: { fillColor: [33, 150, 243] },
+        didDrawPage: (data) => {
+           docPdf.setFontSize(18);
+           docPdf.text('Running EMIs', 14, data.settings.margin.top - 10);
+        }
+      });
+
+      lastTableY = (docPdf as any).lastAutoTable.finalY || lastTableY;
+
+      // Autopays
+       autoTable(docPdf, {
+        startY: lastTableY + 20,
+        head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
+        body: autopays.map(a => [
+          a.name,
+          a.category,
+          a.frequency,
+          a.amount.toFixed(2),
+          a.paymentDate.toLocaleDateString(),
+        ]),
+        headStyles: { fillColor: [33, 150, 243] },
+        didDrawPage: (data) => {
+           docPdf.setFontSize(18);
+           docPdf.text('Autopay', 14, data.settings.margin.top - 10);
+        }
+      });
+
+      docPdf.save('finsight_report.pdf');
+
+       toast({
+            title: "Export Successful",
+            description: "Your data has been exported as a PDF file.",
+        });
+
+    } catch (e) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: "Error",
+        description: "Could not export PDF. Please try again.",
+      });
+    }
+  };
 
   const handleImportClick = () => {
     fileInputRef.current?.click();
@@ -245,6 +343,7 @@ export default function MainLayout({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={handleExportJson}>Export as JSON</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPdf}>Export as PDF</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
