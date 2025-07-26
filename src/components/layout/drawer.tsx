@@ -3,7 +3,7 @@
 
 import { useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
@@ -38,6 +38,7 @@ import type { Transaction, Emi, Autopay } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Link from 'next/link';
+import { ChangePasswordDialog } from './change-password-dialog';
 
 type AppDrawerProps = {
     isOpen: boolean;
@@ -50,6 +51,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = async () => {
@@ -57,25 +59,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     onOpenChange(false);
     router.push('/login');
   };
-  
-  const handleChangePassword = async () => {
-    if(!user || !user.email) return;
-
-    try {
-        await sendPasswordResetEmail(auth, user.email);
-        toast({
-            title: "Password Reset Email Sent",
-            description: `A password reset link has been sent to ${user.email}.`,
-        });
-    } catch (error) {
-        console.error("Error sending password reset email: ", error);
-        toast({
-            variant: 'destructive',
-            title: "Error",
-            description: "Could not send password reset email. Please try again.",
-        });
-    }
-  }
 
   const handleClearAllData = async () => {
     if (!user) return;
@@ -344,7 +327,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
                  <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
                </Button>
-                <Button variant="ghost" onClick={handleChangePassword} className="w-full justify-start">
+                <Button variant="ghost" onClick={() => setIsChangePasswordOpen(true)} className="w-full justify-start">
                     <Lock className="mr-2 h-4 w-4" /> Change Password
                 </Button>
             </nav>
@@ -376,8 +359,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ChangePasswordDialog 
+        isOpen={isChangePasswordOpen}
+        onOpenChange={setIsChangePasswordOpen}
+      />
     </>
   )
 }
-
-    
