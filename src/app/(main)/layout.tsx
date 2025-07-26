@@ -10,7 +10,6 @@ import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp } from '
 import { FinSightLogo } from '@/components/finsight-logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
-import { getFinancialAdvice } from '@/ai/flows/get-financial-advice';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -171,32 +170,6 @@ export default function MainLayout({
       docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
       
       let lastTableY = 40;
-
-      // AI Advice
-      try {
-        const serializableTransactions = transactions.map(t => ({...t, date: t.date.toISOString() } as any));
-        const serializableEmis = emis.map(e => ({...e, paymentDate: e.paymentDate.toISOString()} as any));
-        const serializableAutopays = autopays.map(a => ({...a, paymentDate: a.paymentDate.toISOString()} as any));
-        
-        const advice = await getFinancialAdvice({
-            budget,
-            transactions: serializableTransactions,
-            emis: serializableEmis,
-            autopays: serializableAutopays,
-        });
-
-        docPdf.setFontSize(16);
-        docPdf.text("AI Financial Advice", 14, lastTableY + 10);
-        docPdf.setFontSize(10);
-        const adviceText = docPdf.splitTextToSize(advice.advice, 180); // 180 is width of text block
-        docPdf.text(adviceText, 14, lastTableY + 18);
-        lastTableY = docPdf.getTextDimensions(adviceText).h + lastTableY + 22;
-
-      } catch (e) {
-          // Could not get advice, just continue
-          console.error("Could not get AI advice for PDF", e);
-      }
-
 
       // Transactions
       if(transactions.length > 0) {
