@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Landmark, Receipt, Car, Home, UtensilsCrossed, Plane, ShoppingCart, Lightbulb, Ticket, HandCoins, Briefcase } from 'lucide-react';
 import type { Transaction, Category } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 type TransactionTableProps = {
   transactions: Transaction[];
