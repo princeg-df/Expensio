@@ -6,8 +6,6 @@ import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import { addMonths } from 'date-fns';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
@@ -23,8 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, FileJson, RefreshCw, Landmark, PlusCircle, Edit } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, PlusCircle } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -34,7 +31,6 @@ type DeletionInfo = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -46,13 +42,9 @@ export default function DashboardPage() {
   const [editingAutopay, setEditingAutopay] = useState<Autopay | null>(null);
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
-  const [isClearingData, setIsClearingData] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
 
-  const fetchData = useCallback(async (showToast = false) => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
-    setIsRefreshing(true);
 
     const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
     const transactionsSnapshot = await getDocs(transactionsQuery);
@@ -120,21 +112,13 @@ export default function DashboardPage() {
     if (userDocSnap.exists()) {
       setBudget(userDocSnap.data().budget || 0);
     }
-
-    setIsRefreshing(false);
-    if (showToast) {
-      toast({
-        title: "Data Refreshed",
-        description: "Your financial data is up-to-date.",
-      });
-    }
-  }, [user, toast]);
+  }, [user]);
 
 
   useEffect(() => {
     if (!user) return;
 
-    fetchData(); // Initial fetch
+    fetchData(); 
 
     const transactionsUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/transactions`)), () => fetchData());
     const emisUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/emis`)), () => fetchData());
@@ -213,69 +197,7 @@ export default function DashboardPage() {
   const openDeleteDialog = (id: string, type: 'transaction' | 'emi' | 'autopay') => {
     setDeletionInfo({ id, type });
   };
-
-  const handleClearAllData = async () => {
-    if (!user) return;
-
-    try {
-      const collections = ['transactions', 'emis', 'autopays'];
-      const batch = writeBatch(db);
-
-      for (const col of collections) {
-        const snapshot = await getDocs(query(collection(db, `users/${user.uid}/${col}`)));
-        snapshot.forEach(doc => {
-          batch.delete(doc.ref);
-        });
-      }
-
-      // Also reset the budget in the user's main doc
-      const userDocRef = doc(db, `users/${user.uid}`);
-      batch.update(userDocRef, { budget: 0 });
-
-      await batch.commit();
-
-      toast({
-        title: "Data Cleared",
-        description: "All your financial data has been successfully cleared.",
-      });
-    } catch (error) {
-      console.error("Error clearing data: ", error);
-      toast({
-        variant: 'destructive',
-        title: "Error",
-        description: "Could not clear all data. Please try again.",
-      });
-    } finally {
-      setIsClearingData(false);
-    }
-  };
   
-  const handleExportJson = () => {
-    if (!user) return;
-    const dataToExport = {
-      transactions: transactions.map(t => ({...t, date: t.date.toDate()})),
-      emis: emis.map(e => ({...e, paymentDate: e.paymentDate.toDate()})),
-      autopays: autopays.map(a => ({...a, paymentDate: a.paymentDate.toDate()})),
-      budget
-    };
-
-    const dataStr = JSON.stringify(dataToExport, null, 2);
-    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-
-    const exportFileDefaultName = 'finsight_data.json';
-
-    const linkElement = document.createElement('a');
-    linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
-    linkElement.click();
-    
-    toast({
-        title: "Export Successful",
-        description: "Your data has been exported as a JSON file.",
-    });
-  }
-
-
   const { totalIncome, totalExpenses, totalFixedPayments, remainingAmount, netFlow } = useMemo(() => {
     const incomeFromTransactions = transactions
       .filter((t) => t.type === 'income')
@@ -322,10 +244,6 @@ export default function DashboardPage() {
               existingTransaction={editingTransaction}
               onClose={() => setEditingTransaction(null)}
             />
-           <Button variant="outline" onClick={() => fetchData(true)} disabled={isRefreshing}>
-             <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-             <span className="ml-2 hidden sm:inline">Refresh</span>
-           </Button>
         </div>
       </div>
 
@@ -357,14 +275,7 @@ export default function DashboardPage() {
               />
             </CardContent>
            </Card>
-           <Card>
-             <CardHeader>
-                <CardTitle>Expense Analysis</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ExpenseChart data={transactions} />
-              </CardContent>
-           </Card>
+            <ExpenseChart data={transactions} />
         </div>
         <div className="space-y-6">
             <Card>
@@ -417,22 +328,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
             
-             <Card>
-              <CardHeader>
-                <CardTitle>Data Management</CardTitle>
-                <CardDescription>Export your data or clear it to start fresh.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={handleExportJson}>
-                    <FileJson className="mr-2 h-4 w-4" />
-                    Export JSON
-                  </Button>
-                  <Button variant="destructive" onClick={() => setIsClearingData(true)}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Clear All Data
-                  </Button>
-              </CardContent>
-            </Card>
         </div>
       </div>
 
@@ -452,27 +347,6 @@ export default function DashboardPage() {
         </AlertDialogContent>
       </AlertDialog>
       
-      <AlertDialog open={isClearingData} onOpenChange={setIsClearingData}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all of your
-              transactions, EMIs, and autopay data. Your budget will also be reset to zero.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
-              onClick={handleClearAllData}
-            >
-              Yes, delete everything
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
     </div>
   );
 }
