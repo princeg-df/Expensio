@@ -23,38 +23,45 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Landmark } from 'lucide-react';
+import { Calendar as CalendarIcon, Repeat } from 'lucide-react';
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Please enter a name for the EMI.'),
+  name: z.string().min(1, 'Please enter a name for the autopay.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-  monthsRemaining: z.coerce.number().min(1, 'Months remaining must be at least 1.'),
   paymentDate: z.date({
     required_error: "A payment day is required.",
   }),
+  category: z.enum(['Subscription', 'Investment', 'Insurance', 'Other']),
 });
 
-type AddEmiDialogProps = {
-    onAddEmi: (data: z.infer<typeof formSchema>) => Promise<void>;
+type AddAutopayDialogProps = {
+    onAddAutopay: (data: z.infer<typeof formSchema>) => Promise<void>;
 };
 
-export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
+export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
   const [open, setOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: '',
       amount: 0,
-      monthsRemaining: 1,
+      category: 'Subscription'
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await onAddEmi(values);
+    await onAddAutopay(values);
     form.reset();
     setOpen(false);
   }
@@ -63,15 +70,15 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-            <Landmark className="mr-2 h-4 w-4"/>
-            Add Running EMI
+            <Repeat className="mr-2 h-4 w-4"/>
+            Add Autopay
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Running EMI</DialogTitle>
+          <DialogTitle>Add Autopay Expense</DialogTitle>
           <DialogDescription>
-            Enter the details of your ongoing EMI.
+            For recurring payments like subscriptions, SIPs, etc.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -81,10 +88,33 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>EMI Name</FormLabel>
+                  <FormLabel>Payment Name</FormLabel>
                    <FormControl>
-                    <Input placeholder="e.g., Car Loan" {...field} />
+                    <Input placeholder="e.g., Netflix, SIP" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Category</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a category" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Subscription">Subscription</SelectItem>
+                      <SelectItem value="Investment">Investment</SelectItem>
+                       <SelectItem value="Insurance">Insurance</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -97,19 +127,6 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
                   <FormLabel>Monthly Amount</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-             <FormField
-              control={form.control}
-              name="monthsRemaining"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Months Remaining</FormLabel>
-                  <FormControl>
-                    <Input type="number" placeholder="e.g., 12" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -137,7 +154,7 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
                       </FormControl>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                       <Calendar
+                      <Calendar
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
@@ -150,7 +167,7 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
               )}
             />
             <DialogFooter>
-              <Button type="submit">Add EMI</Button>
+              <Button type="submit">Add Autopay</Button>
             </DialogFooter>
           </form>
         </Form>

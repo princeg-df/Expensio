@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import type { Transaction, Emi } from '@/lib/types';
+import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
@@ -13,14 +13,17 @@ import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { AddTransactionDialog } from '@/components/dashboard/add-transaction-dialog';
 import { AddEmiDialog } from '@/components/dashboard/add-emi-dialog';
 import { EmiTable } from '@/components/dashboard/emi-table';
+import { AutopayTable } from '@/components/dashboard/autopay-table';
+import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
 
-import { ArrowDown, ArrowUp, IndianRupee, Landmark, PiggyBank, Receipt, Scale } from 'lucide-react';
+import { ArrowDown, ArrowUp, IndianRupee, Landmark, PiggyBank, Receipt, Scale, Repeat } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
+  const [autopays, setAutopays] = useState<Autopay[]>([]);
   const [budget, setBudget] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
 
@@ -45,6 +48,15 @@ export default function DashboardPage() {
       setEmis(emisData);
     });
 
+    const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+    const autopaysUnsubscribe = onSnapshot(autopaysQuery, (querySnapshot) => {
+      const autopaysData: Autopay[] = [];
+      querySnapshot.forEach((doc) => {
+        autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
+      });
+      setAutopays(autopaysData);
+    });
+
     const userDocRef = doc(db, `users/${user.uid}`);
     getDoc(userDocRef).then((docSnap) => {
       if (docSnap.exists()) {
@@ -55,6 +67,7 @@ export default function DashboardPage() {
     return () => {
       transactionsUnsubscribe();
       emisUnsubscribe();
+      autopaysUnsubscribe();
     }
   }, [user]);
 
@@ -83,8 +96,17 @@ export default function DashboardPage() {
       monthsRemaining: Number(data.monthsRemaining),
     });
   };
+  
+  const handleAddAutopay = async (data: { name: string; amount: number; paymentDate: Date; category: 'Subscription' | 'Investment' | 'Insurance' | 'Other' }) => {
+    if (!user) return;
+    await addDoc(collection(db, `users/${user.uid}/autopays`), {
+      ...data,
+      paymentDate: Timestamp.fromDate(data.paymentDate),
+      amount: Number(data.amount),
+    });
+  };
 
-  const { totalIncome, totalExpenses, totalEmis, balance } = useMemo(() => {
+  const { totalIncome, totalExpenses, totalFixedPayments, balance } = useMemo(() => {
     const totalIncome = transactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
@@ -93,10 +115,14 @@ export default function DashboardPage() {
       .reduce((sum, t) => sum + t.amount, 0);
     const totalEmis = emis
       .reduce((sum, t) => sum + t.amount, 0);
+    const totalAutopays = autopays
+      .reduce((sum, t) => sum + t.amount, 0);
     
-    const balance = totalIncome - totalExpenses - totalEmis;
-    return { totalIncome, totalExpenses, totalEmis, balance };
-  }, [transactions, emis]);
+    const totalFixedPayments = totalEmis + totalAutopays;
+    const balance = totalIncome - totalExpenses - totalFixedPayments;
+
+    return { totalIncome, totalExpenses, totalFixedPayments, balance };
+  }, [transactions, emis, autopays]);
 
   const filteredTransactions = useMemo(() => {
     if (activeFilter === 'all') return transactions;
@@ -111,9 +137,10 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
            <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
            <AddEmiDialog onAddEmi={handleAddEmi} />
+           <AddAutopayDialog onAddAutopay={handleAddAutopay} />
            <AddTransactionDialog onAddTransaction={handleAddTransaction} />
         </div>
       </div>
@@ -121,7 +148,7 @@ export default function DashboardPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard icon={ArrowUp} title="Total Income" value={totalIncome} />
         <SummaryCard icon={ArrowDown} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={Landmark} title="Total EMI" value={totalEmis} />
+        <SummaryCard icon={Repeat} title="Total Fixed Payments" value={totalFixedPayments} />
         <SummaryCard icon={PiggyBank} title="Your Balance" value={balance} />
       </div>
 
@@ -139,6 +166,10 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4">Running EMIs</h2>
               <EmiTable emis={emis} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Autopay Subscriptions</h2>
+              <AutopayTable autopays={autopays} />
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4">Expense Analysis</h2>

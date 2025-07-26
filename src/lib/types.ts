@@ -16,6 +16,14 @@ export type Emi = {
   paymentDate: Timestamp;
 }
 
+export type Autopay = {
+  id: string;
+  name: string;
+  amount: number;
+  paymentDate: Timestamp;
+  category: 'Subscription' | 'Investment' | 'Insurance' | 'Other';
+}
+
 export type Category = {
   value: string;
   label: string;
