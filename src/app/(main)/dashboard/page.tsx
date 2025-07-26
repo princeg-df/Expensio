@@ -4,25 +4,20 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import type { Transaction, FinancialAdvice } from '@/lib/types';
+import type { Transaction } from '@/lib/types';
 
-import { Button } from '@/components/ui/button';
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
 import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { AddTransactionDialog } from '@/components/dashboard/add-transaction-dialog';
-import { AdviceCard } from '@/components/dashboard/advice-card';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
-import { generateFinancialAdvice } from '@/ai/flows/generate-financial-advice';
 
-import { DollarSign, Landmark, Receipt, Lightbulb, Bot } from 'lucide-react';
+import { DollarSign, Landmark, Receipt } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budget, setBudget] = useState(0);
-  const [advice, setAdvice] = useState<FinancialAdvice | null>(null);
-  const [loadingAdvice, setLoadingAdvice] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -62,22 +57,6 @@ export default function DashboardPage() {
     });
   };
 
-  const handleGetAdvice = async () => {
-    setLoadingAdvice(true);
-    setAdvice(null);
-    try {
-      const expenses = transactions.filter(t => t.type === 'expense').map(t => ({ category: t.category, amount: t.amount }));
-      const emis = transactions.filter(t => t.type === 'emi').map(t => ({ category: t.category, amount: t.amount }));
-      
-      const result = await generateFinancialAdvice({ expenses, emis, monthlyBudget: budget });
-      setAdvice(result);
-    } catch (error) {
-      console.error("Failed to generate advice:", error);
-    } finally {
-      setLoadingAdvice(false);
-    }
-  };
-
   const { totalExpenses, totalEmis, remainingBudget } = useMemo(() => {
     const totalExpenses = transactions
       .filter((t) => t.type === 'expense')
@@ -108,22 +87,9 @@ export default function DashboardPage() {
         <SummaryCard icon={Receipt} title="Remaining Budget" value={remainingBudget} isCurrency={budget > 0} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="grid gap-6">
         <div className="lg:col-span-3">
           <ExpenseChart data={transactions} />
-        </div>
-        <div className="lg:col-span-2">
-            <div className="rounded-lg border bg-card p-4 shadow-sm">
-                 <div className="flex items-center justify-between">
-                    <h3 className="font-semibold">Financial Co-pilot</h3>
-                    <Button size="sm" onClick={handleGetAdvice} disabled={loadingAdvice}>
-                        <Bot className="mr-2 h-4 w-4" />
-                        {loadingAdvice ? 'Thinking...' : 'Get Advice'}
-                    </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-1 mb-4">Get AI-powered insights on your spending.</p>
-                <AdviceCard advice={advice} isLoading={loadingAdvice} />
-            </div>
         </div>
       </div>
 

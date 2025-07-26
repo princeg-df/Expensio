@@ -13,7 +13,3 @@ export type Category = {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 };
-
-export type FinancialAdvice = {
-  advice: string;
-};
