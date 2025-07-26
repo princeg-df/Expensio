@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Landmark } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import type { Emi } from '@/lib/types';
 
 
@@ -43,11 +42,12 @@ const formSchema = z.object({
 type AddEmiDialogProps = {
     onAddOrUpdateEmi: (data: z.infer<typeof formSchema>, id?: string) => Promise<void>;
     existingEmi?: Emi | null;
-    onClose: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    trigger?: React.ReactNode;
 };
 
-export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange, trigger }: AddEmiDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -59,13 +59,12 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
   });
 
   useEffect(() => {
-    if (existingEmi) {
+    if (open && existingEmi) {
       form.reset({
         ...existingEmi,
         paymentDate: existingEmi.paymentDate.toDate(),
       });
-      setOpen(true);
-    } else {
+    } else if (!open) {
         form.reset({
             name: '',
             amount: 0,
@@ -73,32 +72,15 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
             paymentDate: new Date(),
         });
     }
-  }, [existingEmi, form]);
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      onClose();
-    }
-    setOpen(isOpen);
-  };
-
+  }, [existingEmi, open, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     await onAddOrUpdateEmi(values, existingEmi?.id);
-    form.reset();
-    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!existingEmi && (
-        <DialogTrigger asChild>
-            <Button variant="secondary">
-                <Landmark className="mr-2 h-4 w-4"/>
-                Add EMI
-            </Button>
-        </DialogTrigger>
-      )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+        {trigger}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{existingEmi ? 'Edit' : 'Add'} Running EMI</DialogTitle>
@@ -190,3 +172,5 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
     </Dialog>
   );
 }
+
+    

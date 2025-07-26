@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Repeat, PlusCircle } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import type { Autopay } from '@/lib/types';
 
 const formSchema = z.object({
@@ -50,11 +49,12 @@ const formSchema = z.object({
 type AddAutopayDialogProps = {
     onAddOrUpdateAutopay: (data: z.infer<typeof formSchema>, id?: string) => Promise<void>;
     existingAutopay?: Autopay | null;
-    onClose: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    trigger?: React.ReactNode;
 };
 
-export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, onClose }: AddAutopayDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, onOpenChange, trigger }: AddAutopayDialogProps) {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,13 +68,12 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, onClos
   });
 
   useEffect(() => {
-    if (existingAutopay) {
+    if (open && existingAutopay) {
       form.reset({
         ...existingAutopay,
         paymentDate: existingAutopay.paymentDate.toDate(),
       });
-      setOpen(true);
-    } else {
+    } else if (!open) {
         form.reset({
             name: '',
             amount: 0,
@@ -83,32 +82,15 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, onClos
             frequency: 'Monthly',
         });
     }
-  }, [existingAutopay, form]);
-
-
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      onClose();
-    }
-    setOpen(isOpen);
-  };
+  }, [existingAutopay, open, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     await onAddOrUpdateAutopay(values, existingAutopay?.id);
-    form.reset();
-    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!existingAutopay && (
-        <DialogTrigger asChild>
-          <Button variant="secondary">
-              <Repeat className="mr-2 h-4 w-4"/>
-              Add Autopay
-          </Button>
-        </DialogTrigger>
-      )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{existingAutopay ? 'Edit' : 'Add'} Autopay Expense</DialogTitle>
@@ -232,3 +214,5 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, onClos
     </Dialog>
   );
 }
+
+    

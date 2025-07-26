@@ -37,6 +37,10 @@ export default function DashboardPage() {
   const [budget, setBudget] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
   
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [isAddEmiOpen, setIsAddEmiOpen] = useState(false);
+  const [isAddAutopayOpen, setIsAddAutopayOpen] = useState(false);
+
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingEmi, setEditingEmi] = useState<Emi | null>(null);
   const [editingAutopay, setEditingAutopay] = useState<Autopay | null>(null);
@@ -154,6 +158,7 @@ export default function DashboardPage() {
       await addDoc(collection(db, `users/${user.uid}/transactions`), transactionData);
     }
     setEditingTransaction(null);
+    setIsAddTransactionOpen(false);
   };
 
   const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
@@ -170,6 +175,7 @@ export default function DashboardPage() {
         await addDoc(collection(db, `users/${user.uid}/emis`), emiData);
     }
     setEditingEmi(null);
+    setIsAddEmiOpen(false);
   };
   
   const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
@@ -185,6 +191,7 @@ export default function DashboardPage() {
       await addDoc(collection(db, `users/${user.uid}/autopays`), autopayData);
     }
     setEditingAutopay(null);
+    setIsAddAutopayOpen(false);
   };
 
   const handleDelete = async () => {
@@ -239,22 +246,46 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
            <AddTransactionDialog 
-              key={`transaction-${editingTransaction?.id || 'new'}`}
+              open={isAddTransactionOpen || !!editingTransaction}
+              onOpenChange={(open) => {
+                if(!open) { setEditingTransaction(null); setIsAddTransactionOpen(false); }
+              }}
+              trigger={
+                <Button onClick={() => setIsAddTransactionOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4"/>
+                    Add Transaction
+                </Button>
+              }
               onAddOrUpdateTransaction={handleAddOrUpdateTransaction}
               existingTransaction={editingTransaction}
-              onClose={() => setEditingTransaction(null)}
             />
-            <AddEmiDialog 
-              key={`emi-${editingEmi?.id || 'new'}`}
+            <AddEmiDialog
+              open={isAddEmiOpen || !!editingEmi}
+              onOpenChange={(open) => {
+                if(!open) { setEditingEmi(null); setIsAddEmiOpen(false); }
+              }}
+              trigger={
+                <Button variant="secondary" onClick={() => setIsAddEmiOpen(true)}>
+                    <Repeat className="mr-2 h-4 w-4"/>
+                    Add EMI
+                </Button>
+              }
               onAddOrUpdateEmi={handleAddOrUpdateEmi}
               existingEmi={editingEmi}
-              onClose={() => setEditingEmi(null)}
             />
             <AddAutopayDialog 
-              key={`autopay-${editingAutopay?.id || 'new'}`}
+              open={isAddAutopayOpen || !!editingAutopay}
+              onOpenChange={(open) => {
+                if(!open) { setEditingAutopay(null); setIsAddAutopayOpen(false); }
+              }}
+              trigger={
+                <Button variant="secondary" onClick={() => setIsAddAutopayOpen(true)}>
+                    <Repeat className="mr-2 h-4 w-4"/>
+                    Add Autopay
+                </Button>
+              }
               onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
               existingAutopay={editingAutopay}
-              onClose={() => setEditingAutopay(null)}
             />
         </div>
       </div>
@@ -282,7 +313,7 @@ export default function DashboardPage() {
             <CardContent>
               <TransactionTable 
                 transactions={filteredTransactions} 
-                onEdit={setEditingTransaction}
+                onEdit={(t) => { setEditingTransaction(t); setIsAddTransactionOpen(true); }}
                 onDelete={(id) => openDeleteDialog(id, 'transaction')}
               />
             </CardContent>
@@ -292,24 +323,26 @@ export default function DashboardPage() {
         <div className="space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Manage Budget</CardTitle>
+                <div>
+                    <CardTitle>Manage Budget</CardTitle>
+                    <CardDescription className="text-xs">Set your monthly budget.</CardDescription>
+                </div>
                 <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Set your monthly budget to track your spending and stay on top of your finances.
-                </p>
-              </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Running EMIs</CardTitle>
+                 <div>
+                    <CardTitle>Running EMIs</CardTitle>
+                    <CardDescription className="text-xs">Your ongoing EMIs.</CardDescription>
+                 </div>
+                 <Button variant="ghost" size="icon" onClick={() => setIsAddEmiOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>
                <EmiTable 
                 emis={emis} 
-                onEdit={setEditingEmi}
+                onEdit={(e) => { setEditingEmi(e); setIsAddEmiOpen(true); }}
                 onDelete={(id) => openDeleteDialog(id, 'emi')}
                />
               </CardContent>
@@ -317,12 +350,16 @@ export default function DashboardPage() {
 
             <Card>
                <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Autopay</CardTitle>
+                <div>
+                    <CardTitle>Autopay</CardTitle>
+                    <CardDescription className="text-xs">Your recurring payments.</CardDescription>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setIsAddAutopayOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
               </CardHeader>
               <CardContent>
                <AutopayTable 
                 autopays={autopays} 
-                onEdit={setEditingAutopay}
+                onEdit={(a) => { setEditingAutopay(a); setIsAddAutopayOpen(true); }}
                 onDelete={(id) => openDeleteDialog(id, 'autopay')}
                />
               </CardContent>
@@ -350,3 +387,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

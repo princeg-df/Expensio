@@ -11,7 +11,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 
 
@@ -51,11 +50,12 @@ const incomeCategories = ['Salary', 'Freelance', 'Investment', 'Other'];
 type AddTransactionDialogProps = {
     onAddOrUpdateTransaction: (data: z.infer<typeof formSchema>, id?: string) => Promise<void>;
     existingTransaction?: Transaction | null;
-    onClose: () => void;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+    trigger?: React.ReactNode;
 };
 
-export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransaction, onClose }: AddTransactionDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransaction, open, onOpenChange, trigger }: AddTransactionDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -69,13 +69,12 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
   const transactionType = form.watch('type');
   
   useEffect(() => {
-    if (existingTransaction) {
+    if (open && existingTransaction) {
       form.reset({
         ...existingTransaction,
         date: existingTransaction.date.toDate(),
       });
-      setOpen(true);
-    } else {
+    } else if (!open) {
         form.reset({
             type: 'expense',
             category: '',
@@ -83,32 +82,15 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
             date: new Date(),
         });
     }
-  }, [existingTransaction, form]);
+  }, [existingTransaction, open, form]);
   
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      onClose();
-    }
-    setOpen(isOpen);
-  };
-
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     await onAddOrUpdateTransaction(values, existingTransaction?.id);
-    form.reset();
-    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      {!existingTransaction && (
-        <DialogTrigger asChild>
-            <Button>
-                <PlusCircle className="mr-2 h-4 w-4"/>
-                Add Transaction
-            </Button>
-        </DialogTrigger>
-      )}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{existingTransaction ? 'Edit' : 'Add New'} Transaction</DialogTitle>
@@ -220,3 +202,5 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
     </Dialog>
   );
 }
+
+    

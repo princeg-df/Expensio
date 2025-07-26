@@ -58,7 +58,7 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
             <Input
               id="budget"
               type="number"
-              value={newBudget}
+              defaultValue={currentBudget}
               onChange={(e) => setNewBudget(Number(e.target.value))}
               className="col-span-3"
               placeholder="e.g., 50000"
@@ -72,3 +72,5 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
     </Dialog>
   );
 }
+
+    
