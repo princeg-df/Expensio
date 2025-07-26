@@ -332,8 +332,8 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                 <div className="flex-1">
+              <CardHeader className="flex flex-row items-start justify-between">
+                 <div className="flex flex-col">
                     <CardTitle>Running EMIs</CardTitle>
                     <CardDescription className="text-xs">Your ongoing EMIs.</CardDescription>
                  </div>
@@ -349,8 +349,8 @@ export default function DashboardPage() {
             </Card>
 
             <Card>
-               <CardHeader className="flex flex-row items-center justify-between">
-                <div className="flex-1">
+               <CardHeader className="flex flex-row items-start justify-between">
+                <div className="flex flex-col">
                     <CardTitle>Autopay</CardTitle>
                     <CardDescription className="text-xs">Your recurring payments.</CardDescription>
                 </div>
