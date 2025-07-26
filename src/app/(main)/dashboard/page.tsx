@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -17,9 +19,10 @@ import { AutopayTable } from '@/components/dashboard/autopay-table';
 import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
-
-import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet, Trash2, Download, FileJson } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type DeletionInfo = {
   id: string;
@@ -29,6 +32,7 @@ type DeletionInfo = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -40,6 +44,7 @@ export default function DashboardPage() {
   const [editingAutopay, setEditingAutopay] = useState<Autopay | null>(null);
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
+  const [isClearingData, setIsClearingData] = useState(false);
   
 
   useEffect(() => {
@@ -155,6 +160,67 @@ export default function DashboardPage() {
     setDeletionInfo({ id, type });
   };
 
+  const handleClearAllData = async () => {
+    if (!user) return;
+
+    try {
+      const collections = ['transactions', 'emis', 'autopays'];
+      const batch = writeBatch(db);
+
+      for (const col of collections) {
+        const snapshot = await getDocs(query(collection(db, `users/${user.uid}/${col}`)));
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+      }
+
+      // Also reset the budget in the user's main doc
+      const userDocRef = doc(db, `users/${user.uid}`);
+      batch.update(userDocRef, { budget: 0 });
+
+      await batch.commit();
+
+      toast({
+        title: "Data Cleared",
+        description: "All your financial data has been successfully cleared.",
+      });
+    } catch (error) {
+      console.error("Error clearing data: ", error);
+      toast({
+        variant: 'destructive',
+        title: "Error",
+        description: "Could not clear all data. Please try again.",
+      });
+    } finally {
+      setIsClearingData(false);
+    }
+  };
+  
+  const handleExportJson = () => {
+    if (!user) return;
+    const dataToExport = {
+      transactions: transactions.map(t => ({...t, date: t.date.toDate()})),
+      emis: emis.map(e => ({...e, paymentDate: e.paymentDate.toDate()})),
+      autopays: autopays.map(a => ({...a, paymentDate: a.paymentDate.toDate()})),
+      budget
+    };
+
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+    const exportFileDefaultName = 'finsight_data.json';
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+    
+    toast({
+        title: "Export Successful",
+        description: "Your data has been exported as a JSON file.",
+    });
+  }
+
 
   const { totalIncome, totalExpenses, totalFixedPayments, remainingAmount, netFlow } = useMemo(() => {
     const incomeFromTransactions = transactions
@@ -227,12 +293,14 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <h2 className="text-2xl font-bold tracking-tight mb-4">Recent Transactions</h2>
-          <div className="flex space-x-2 mb-4">
-            <button onClick={() => setActiveFilter('all')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>All</button>
-            <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Income</button>
-            <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Expenses</button>
-          </div>
+           <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+            <h2 className="text-2xl font-bold tracking-tight">Recent Transactions</h2>
+            <div className="flex space-x-2">
+                <button onClick={() => setActiveFilter('all')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>All</button>
+                <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Income</button>
+                <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Expenses</button>
+            </div>
+           </div>
           <TransactionTable 
             transactions={filteredTransactions} 
             onEdit={setEditingTransaction}
@@ -260,6 +328,19 @@ export default function DashboardPage() {
               <h2 className="text-2xl font-bold tracking-tight mb-4">Expense Analysis</h2>
               <ExpenseChart data={transactions} />
             </div>
+             <div>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Data Management</h2>
+              <div className="grid grid-cols-2 gap-4">
+                  <Button variant="outline" onClick={handleExportJson}>
+                    <FileJson className="mr-2 h-4 w-4" />
+                    Export JSON
+                  </Button>
+                  <Button variant="destructive" onClick={() => setIsClearingData(true)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Clear All Data
+                  </Button>
+              </div>
+            </div>
         </div>
       </div>
 
@@ -275,6 +356,27 @@ export default function DashboardPage() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeletionInfo(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={isClearingData} onOpenChange={setIsClearingData}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete all of your
+              transactions, EMIs, and autopay data. Your budget will also be reset to zero.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleClearAllData}
+            >
+              Yes, delete everything
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
