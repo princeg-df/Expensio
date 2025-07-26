@@ -19,7 +19,7 @@ import { BudgetSetter } from '@/components/dashboard/budget-setter';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
-import { ArrowDown, ArrowUp, PiggyBank, Repeat } from 'lucide-react';
+import { ArrowDown, ArrowUp, PiggyBank, Repeat, Wallet } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -76,6 +76,9 @@ export default function DashboardPage() {
     const userUnsubscribe = onSnapshot(userDocRef, (docSnap) => {
       if (docSnap.exists()) {
         setBudget(docSnap.data().budget || 0);
+      } else {
+        // Handle case where user document might not exist yet
+        setDoc(userDocRef, { budget: 0 }, { merge: true });
       }
     });
 
@@ -153,12 +156,12 @@ export default function DashboardPage() {
   };
 
 
-  const { totalIncome, totalExpenses, totalFixedPayments, balance } = useMemo(() => {
-    const income = transactions
+  const { totalIncome, totalExpenses, totalFixedPayments, remainingAmount, netFlow } = useMemo(() => {
+    const incomeFromTransactions = transactions
       .filter((t) => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const expenses = transactions
+    const expensesFromTransactions = transactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
@@ -167,14 +170,17 @@ export default function DashboardPage() {
     const autopaysAmount = autopays.reduce((sum, t) => sum + t.amount, 0);
     
     const fixed = emisAmount + autopaysAmount;
+    
+    const totalExp = expensesFromTransactions + fixed;
 
     return { 
-      totalIncome: income, 
-      totalExpenses: expenses + fixed,
+      totalIncome: incomeFromTransactions, 
+      totalExpenses: totalExp,
       totalFixedPayments: fixed,
-      balance: income - expenses - fixed,
+      remainingAmount: budget - totalExp,
+      netFlow: incomeFromTransactions - totalExp,
     };
-  }, [transactions, emis, autopays]);
+  }, [transactions, emis, autopays, budget]);
 
   const filteredTransactions = useMemo(() => {
     if (activeFilter === 'all') return transactions;
@@ -213,10 +219,10 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard icon={ArrowUp} title="Total Income" value={totalIncome} />
+        <SummaryCard icon={ArrowUp} title="Monthly Budget" value={budget} />
         <SummaryCard icon={ArrowDown} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={Repeat} title="Total Fixed Payments" value={totalFixedPayments} />
-        <SummaryCard icon={PiggyBank} title="Your Balance" value={balance} />
+        <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
+        <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
