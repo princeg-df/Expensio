@@ -36,6 +36,10 @@ export function LoginForm() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: 'Login Successful',
+        description: 'Welcome back! Redirecting to your dashboard.',
+      });
       router.push('/dashboard');
     } catch (error: any) {
       toast({

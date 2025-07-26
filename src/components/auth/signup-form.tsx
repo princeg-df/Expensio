@@ -45,6 +45,11 @@ export function SignupForm() {
         createdAt: new Date(),
         budget: 0,
       });
+      
+      toast({
+        title: 'Sign Up Successful',
+        description: "Your account has been created. Let's get started!",
+      });
 
       router.push('/dashboard');
     } catch (error: any) {
