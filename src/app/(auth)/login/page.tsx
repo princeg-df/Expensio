@@ -7,7 +7,7 @@ export default function LoginPage() {
     <div className="flex w-full flex-col items-center space-y-6">
       <ExpensioLogo />
       <div className="w-full text-center">
-        <h1 className="text-2xl font-bold">Welcome Back</h1>
+        <h1 className="text-2xl font-bold font-sans">Welcome Back</h1>
         <p className="text-muted-foreground">Log in to your Expensio account</p>
       </div>
       <LoginForm />

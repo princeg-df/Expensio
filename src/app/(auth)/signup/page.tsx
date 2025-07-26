@@ -7,7 +7,7 @@ export default function SignupPage() {
     <div className="flex w-full flex-col items-center space-y-6">
       <ExpensioLogo />
       <div className="w-full text-center">
-        <h1 className="text-2xl font-bold">Create an Account</h1>
+        <h1 className="text-2xl font-bold font-sans">Create an Account</h1>
         <p className="text-muted-foreground">Start your financial journey with Expensio</p>
       </div>
       <SignupForm />
