@@ -1,11 +1,12 @@
+
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import { collection, getDocs, query, writeBatch, doc } from 'firebase/firestore';
+import { collection, getDocs, query, writeBatch, doc, setDoc, Timestamp } from 'firebase/firestore';
 import { FinSightLogo } from '@/components/finsight-logo';
 import { Button } from '@/components/ui/button';
 import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
@@ -45,6 +46,7 @@ export default function MainLayout({
   const { user } = useAuth();
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -135,6 +137,79 @@ export default function MainLayout({
         });
     }
   }
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') {
+          throw new Error('File could not be read');
+        }
+        const data = JSON.parse(text);
+
+        const batch = writeBatch(db);
+
+        if (data.transactions && Array.isArray(data.transactions)) {
+          data.transactions.forEach((t: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/transactions`));
+            const transactionData = { ...t, date: Timestamp.fromDate(new Date(t.date)) };
+            delete transactionData.id;
+            batch.set(docRef, transactionData);
+          });
+        }
+        if (data.emis && Array.isArray(data.emis)) {
+          data.emis.forEach((e: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/emis`));
+            const emiData = { ...e, paymentDate: Timestamp.fromDate(new Date(e.paymentDate)) };
+            delete emiData.id;
+            batch.set(docRef, emiData);
+          });
+        }
+        if (data.autopays && Array.isArray(data.autopays)) {
+          data.autopays.forEach((a: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/autopays`));
+            const autopayData = { ...a, paymentDate: Timestamp.fromDate(new Date(a.paymentDate)) };
+            delete autopayData.id;
+            batch.set(docRef, autopayData);
+          });
+        }
+
+        if (data.budget) {
+          const userDocRef = doc(db, `users/${user.uid}`);
+          batch.set(userDocRef, { budget: data.budget }, { merge: true });
+        }
+
+        await batch.commit();
+
+        toast({
+          title: "Import Successful",
+          description: "Your data has been imported successfully.",
+        });
+      } catch (error) {
+        console.error("Error importing data: ", error);
+        toast({
+          variant: 'destructive',
+          title: "Import Failed",
+          description: "The file is not a valid JSON backup file.",
+        });
+      } finally {
+        // Reset file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.readAsText(file);
+  };
   
   const handleRefresh = () => {
     window.location.reload();
@@ -153,37 +228,29 @@ export default function MainLayout({
                 <FinSightLogo />
             </div>
             {user && (
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refresh Data">
+                <RefreshCw className="h-5 w-5" />
+              </Button>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+              <Button variant="ghost" size="icon" onClick={handleImportClick} title="Import Data">
+                <Upload className="h-5 w-5" />
+              </Button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <MoreVertical className="h-5 w-5" />
+                   <Button variant="ghost" size="icon" title="Export Data">
+                    <Download className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleRefresh}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    <span>Refresh Data</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger>
-                      <Download className="mr-2 h-4 w-4" />
-                      <span>Export Data</span>
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuPortal>
-                      <DropdownMenuSubContent>
-                        <DropdownMenuItem onClick={handleExportJson}>As JSON</DropdownMenuItem>
-                      </DropdownMenuSubContent>
-                    </DropdownMenuPortal>
-                  </DropdownMenuSub>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setIsClearingData(true)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Clear All Data</span>
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportJson}>Export as JSON</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              <Button variant="ghost" size="icon" onClick={() => setIsClearingData(true)} title="Clear All Data" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-5 w-5" />
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-8 w-8 rounded-full">
