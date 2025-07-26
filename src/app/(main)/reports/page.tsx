@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SummaryCard } from '@/components/dashboard/summary-card';
-import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase } from 'lucide-react';
+import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type FinancialEvent = {
@@ -43,10 +43,11 @@ const categoryIcons: { [key: string]: React.ComponentType<{ className?: string }
 
 
 export default function ReportsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
@@ -78,27 +79,34 @@ export default function ReportsPage() {
 
   const fetchData = useCallback(async () => {
     if (!user) return;
-    
-    const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
-    const transactionsSnapshot = await getDocs(transactionsQuery);
-    setTransactions(transactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
-    
-    const emisQuery = query(collection(db, `users/${user.uid}/emis`));
-    const emisSnapshot = await getDocs(emisQuery);
-    setEmis(emisSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Emi)));
+    setLoading(true);
+    try {
+      const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+      const transactionsSnapshot = await getDocs(transactionsQuery);
+      setTransactions(transactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
+      
+      const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+      const emisSnapshot = await getDocs(emisQuery);
+      setEmis(emisSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Emi)));
 
-    const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
-    const autopaysSnapshot = await getDocs(autopaysQuery);
-    setAutopays(autopaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Autopay)));
+      const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+      const autopaysSnapshot = await getDocs(autopaysQuery);
+      setAutopays(autopaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Autopay)));
+    } catch(e) {
+        console.error(e)
+    } finally {
+        setLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
+    if(authLoading) return;
     if(user) {
         fetchData();
-        const unsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/transactions`)), fetchData);
-        return () => unsubscribe();
+    } else {
+        setLoading(false);
     }
-  }, [user, fetchData]);
+  }, [user, authLoading, fetchData]);
 
 
   const { monthlyEvents, totalIncome, totalExpenses, netFlow } = useMemo(() => {
@@ -194,6 +202,14 @@ export default function ReportsPage() {
       netFlow: income - expenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear]);
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">

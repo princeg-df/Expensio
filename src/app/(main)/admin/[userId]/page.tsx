@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,10 +11,11 @@ import type { Transaction, Emi, Autopay } from '@/lib/types';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
+import { Loader2, ArrowLeft, ShieldAlert, CircleDollarSign } from 'lucide-react';
 import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
+import { SummaryCard } from '@/components/dashboard/summary-card';
 
 const ADMIN_EMAIL = 'princegupta619@gmail.com';
 
@@ -24,6 +26,7 @@ export default function UserDetailPage() {
   const userId = params.userId as string;
 
   const [user, setUser] = useState<{ email: string } | null>(null);
+  const [budget, setBudget] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -37,7 +40,9 @@ export default function UserDetailPage() {
       const userDocRef = doc(db, 'users', userId);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        setUser({ email: userDocSnap.data().email });
+        const userData = userDocSnap.data();
+        setUser({ email: userData.email });
+        setBudget(userData.budget || 0);
       } else {
         throw new Error('User not found');
       }
@@ -117,6 +122,16 @@ export default function UserDetailPage() {
             <p className="text-muted-foreground">Viewing details for {user?.email}</p>
         </div>
       </div>
+
+       {budget !== null && (
+        <div className="grid max-w-xs">
+          <SummaryCard 
+            icon={CircleDollarSign} 
+            title="Monthly Budget" 
+            value={budget} 
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
