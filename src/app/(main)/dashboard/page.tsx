@@ -292,7 +292,12 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard icon={ArrowUp} title="Monthly Budget" value={budget} />
+        <SummaryCard 
+          icon={ArrowUp} 
+          title="Monthly Budget" 
+          value={budget} 
+          action={<BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />} 
+        />
         <SummaryCard icon={ArrowDown} title="Total Expenses" value={totalExpenses} />
         <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
         <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
@@ -319,18 +324,9 @@ export default function DashboardPage() {
               />
             </CardContent>
            </Card>
-            <ExpenseChart data={transactions} />
+            <ExpenseChart transactions={transactions} emis={emis} autopays={autopays} />
         </div>
         <div className="space-y-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div className="grid gap-1">
-                  <CardTitle>Manage Budget</CardTitle>
-                </div>
-                <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
-              </CardHeader>
-            </Card>
-
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                  <div className="grid gap-1">

@@ -2,42 +2,103 @@
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import type { Transaction } from '@/lib/types';
+import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { useMemo } from 'react';
+import { getMonth, getYear } from 'date-fns';
 
 type ExpenseChartProps = {
-  data: Transaction[];
+  transactions: Transaction[];
+  emis: Emi[];
+  autopays: Autopay[];
 };
 
-export function ExpenseChart({ data }: ExpenseChartProps) {
+export function ExpenseChart({ transactions, emis, autopays }: ExpenseChartProps) {
     const chartData = useMemo(() => {
-        const monthlyExpenses: { [key: string]: number } = {};
-        const expenseTransactions = data.filter(t => t.type === 'expense');
-        
-        // Ensure we have data for the last 6 months, even if it's zero
-        const lastSixMonths: { [key: string]: number } = {};
+        // Initialize data for the last 6 months
+        const lastSixMonths: { name: string, total: number }[] = [];
         for (let i = 5; i >= 0; i--) {
             const d = new Date();
             d.setMonth(d.getMonth() - i);
-            const month = d.toLocaleString('default', { month: 'short' });
-            lastSixMonths[month] = 0;
+            const monthName = d.toLocaleString('default', { month: 'short' });
+            const year = d.getFullYear();
+            lastSixMonths.push({ name: `${monthName} '${String(year).slice(2)}`, total: 0 });
         }
 
-        expenseTransactions.forEach(transaction => {
-            const month = new Date(transaction.date.seconds * 1000).toLocaleString('default', { month: 'short' });
-            if(month in lastSixMonths) {
-                lastSixMonths[month] += transaction.amount;
+        // Create a map for quick lookup
+        const monthMap = new Map<string, number>();
+        lastSixMonths.forEach((d, i) => monthMap.set(d.name, i));
+
+        // Add variable expenses from transactions
+        transactions.forEach(t => {
+            if (t.type === 'expense') {
+                const transactionDate = t.date.toDate();
+                const monthName = transactionDate.toLocaleString('default', { month: 'short' });
+                const year = transactionDate.getFullYear();
+                const key = `${monthName} '${String(year).slice(2)}'`;
+                if (monthMap.has(key)) {
+                    const index = monthMap.get(key)!;
+                    lastSixMonths[index].total += t.amount;
+                }
             }
         });
 
-        return Object.entries(lastSixMonths).map(([name, total]) => ({ name, total }));
-    }, [data]);
+        const now = new Date();
+
+        // Add fixed expenses from EMIs
+        emis.forEach(emi => {
+            for (let i = 0; i < 6; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthName = d.toLocaleString('default', { month: 'short' });
+                const year = d.getFullYear();
+                const key = `${monthName} '${String(year).slice(2)}'`;
+
+                if (monthMap.has(key)) {
+                    const index = monthMap.get(key)!;
+                    lastSixMonths[index].total += emi.amount;
+                }
+            }
+        });
+
+        // Add fixed expenses from Autopays
+        autopays.forEach(autopay => {
+            for (let i = 0; i < 6; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthName = d.toLocaleString('default', { month: 'short' });
+                const year = d.getFullYear();
+                const key = `${monthName} '${String(year).slice(2)}'`;
+                
+                if (monthMap.has(key)) {
+                  let monthlyAmount = 0;
+                  if (autopay.frequency === 'Monthly') {
+                      monthlyAmount = autopay.amount;
+                  } else if (autopay.frequency === 'Quarterly') {
+                      // Add amount if it's a payment month
+                      const paymentMonth = autopay.paymentDate.toDate().getMonth();
+                      if ((d.getMonth() - paymentMonth) % 3 === 0) {
+                          monthlyAmount = autopay.amount;
+                      }
+                  } else if (autopay.frequency === 'Yearly') {
+                      // Add amount if it's a payment month
+                      const paymentMonth = autopay.paymentDate.toDate().getMonth();
+                      if (d.getMonth() === paymentMonth) {
+                          monthlyAmount = autopay.amount;
+                      }
+                  }
+                  const index = monthMap.get(key)!;
+                  lastSixMonths[index].total += monthlyAmount;
+                }
+            }
+        });
+
+
+        return lastSixMonths;
+    }, [transactions, emis, autopays]);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Expense Analysis</CardTitle>
-        <CardDescription>Your spending trends over the last 6 months.</CardDescription>
+        <CardDescription>Your spending trends over the last 6 months, including fixed payments.</CardDescription>
       </CardHeader>
       <CardContent className="pl-2">
         {chartData.some(d => d.total > 0) ? (
