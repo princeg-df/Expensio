@@ -1,14 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { useState, useEffect, useCallback } from 'react';
+import { collection, getDocs, doc, deleteDoc, writeBatch, query } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowRight, Loader2, ShieldAlert } from 'lucide-react';
+import { ArrowRight, Loader2, ShieldAlert, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type AppUser = {
   id: string;
@@ -16,12 +27,33 @@ type AppUser = {
   createdAt?: { toDate: () => Date };
 };
 
-const ADMIN_EMAIL = 'imshardadeen1@gmail.com';
+const ADMIN_EMAIL = 'princegupta619@gmail.com';
 
 export default function AdminPage() {
   const { user, loading: authLoading } = useAuth();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userToDelete, setUserToDelete] = useState<AppUser | null>(null);
+  const { toast } = useToast();
+
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const usersCollection = collection(db, 'users');
+      const userSnapshot = await getDocs(usersCollection);
+      const usersList = userSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as AppUser[];
+      setUsers(usersList.filter(u => u.email !== ADMIN_EMAIL));
+    } catch (error) {
+      console.error("Error fetching users: ", error);
+       toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch users.' });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
 
   useEffect(() => {
     if (authLoading) return;
@@ -29,25 +61,40 @@ export default function AdminPage() {
       setLoading(false);
       return;
     }
-
-    const fetchUsers = async () => {
-      try {
-        const usersCollection = collection(db, 'users');
-        const userSnapshot = await getDocs(usersCollection);
-        const usersList = userSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as AppUser[];
-        setUsers(usersList);
-      } catch (error) {
-        console.error("Error fetching users: ", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUsers();
-  }, [user, authLoading]);
+  }, [user, authLoading, fetchUsers]);
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const collections = ['transactions', 'emis', 'autopays'];
+      const batch = writeBatch(db);
+
+      for (const col of collections) {
+        const snapshot = await getDocs(query(collection(db, `users/${userToDelete.id}/${col}`)));
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+      }
+      
+      const userDocRef = doc(db, 'users', userToDelete.id);
+      batch.delete(userDocRef);
+
+      await batch.commit();
+
+      toast({
+        title: "User Deleted",
+        description: `User ${userToDelete.email} has been successfully deleted.`,
+      });
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error) {
+      console.error("Error deleting user: ", error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete user.' });
+    }
+  };
+
 
   if (authLoading || loading) {
     return (
@@ -77,6 +124,7 @@ export default function AdminPage() {
   }
 
   return (
+    <>
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
@@ -113,10 +161,13 @@ export default function AdminPage() {
                         : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild variant="ghost" size="sm">
+                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/admin/${appUser.id}`}>
-                          View Details <ArrowRight className="ml-2 h-4 w-4" />
+                          View <ArrowRight className="ml-2 h-4 w-4" />
                         </Link>
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setUserToDelete(appUser)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -127,5 +178,21 @@ export default function AdminPage() {
         </CardContent>
       </Card>
     </div>
+    
+      <AlertDialog open={!!userToDelete} onOpenChange={() => setUserToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the user <span className="font-bold">{userToDelete?.email}</span> and all of their associated data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive hover:bg-destructive/90">Delete User</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

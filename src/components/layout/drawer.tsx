@@ -45,7 +45,7 @@ type AppDrawerProps = {
     onOpenChange: (isOpen: boolean) => void;
 }
 
-const ADMIN_EMAIL = 'imshardadeen1@gmail.com';
+const ADMIN_EMAIL = 'princegupta619@gmail.com';
 
 
 export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {

@@ -15,7 +15,7 @@ import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
 
-const ADMIN_EMAIL = 'imshardadeen1@gmail.com';
+const ADMIN_EMAIL = 'princegupta619@gmail.com';
 
 export default function UserDetailPage() {
   const { user: adminUser, loading: authLoading } = useAuth();
