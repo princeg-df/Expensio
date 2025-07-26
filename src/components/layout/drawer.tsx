@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, RefreshCw, ChevronDown, Lock } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -32,14 +32,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 
 type AppDrawerProps = {
     isOpen: boolean;
@@ -67,7 +65,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         await sendPasswordResetEmail(auth, user.email);
         toast({
             title: "Password Reset Email Sent",
-            description: "Please check your inbox to reset your password.",
+            description: `A password reset link has been sent to ${user.email}.`,
         });
     } catch (error) {
         console.error("Error sending password reset email: ", error);
@@ -315,12 +313,12 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
-        <SheetContent className="flex flex-col">
-          <SheetHeader className="p-4">
+        <SheetContent className="flex flex-col p-0">
+          <SheetHeader className="p-4 border-b">
             <SheetTitle><ExpensioLogo /></SheetTitle>
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto">
-            <nav className="flex flex-col gap-2 p-4">
+          <div className="flex-1 overflow-y-auto p-4">
+            <nav className="flex flex-col gap-2">
                <Link href="/reports" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/reports' ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <LineChart className="mr-2 h-4 w-4" /> Reports
@@ -334,7 +332,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                      <Button variant="ghost" className="w-full justify-start">
-                        <Download className="mr-2 h-4 w-4" /> Export Data <ChevronDown className="ml-auto h-4 w-4" />
+                        <Download className="mr-2 h-4 w-4" /> Export Data
                      </Button>
                   </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -346,39 +344,15 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
                  <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
                </Button>
+                <Button variant="ghost" onClick={handleChangePassword} className="w-full justify-start">
+                    <Lock className="mr-2 h-4 w-4" /> Change Password
+                </Button>
             </nav>
           </div>
           <div className="p-4 border-t">
-            {user && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={`https://avatar.vercel.sh/${user.email}.png`} alt={user.email ?? ''} />
-                     <AvatarFallback className="bg-neutral-800 text-white">
-                       {user.email?.[0].toUpperCase()}
-                     </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium">{user.email}</span>
-                </div>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon"><ChevronDown className="h-5 w-5"/></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem onClick={handleChangePassword}>
-                      <Lock className="mr-2 h-4 w-4" />
-                      Change Password
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleLogout}>
-                      <LogOut className="mr-2 h-4 w-4" />
-                      <span>Log out</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-              </div>
-            )}
+             <Button variant="ghost" onClick={handleLogout} className="w-full justify-start">
+                <LogOut className="mr-2 h-4 w-4" /> Log Out
+             </Button>
           </div>
         </SheetContent>
       </Sheet>
@@ -405,3 +379,5 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
+
+    
