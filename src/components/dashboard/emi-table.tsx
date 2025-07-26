@@ -16,7 +16,7 @@ export function EmiTable({ emis }: EmiTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Name</TableHead>
-            <TableHead>Next Payment</TableHead>
+            <TableHead>Payment Date</TableHead>
             <TableHead>Months Left</TableHead>
             <TableHead className="text-right">Amount</TableHead>
           </TableRow>

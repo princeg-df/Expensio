@@ -119,7 +119,7 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
               name="paymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Next Payment Date</FormLabel>
+                  <FormLabel>Payment Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
