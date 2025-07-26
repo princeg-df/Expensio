@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,6 +28,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, Landmark } from 'lucide-react';
+import type { Emi } from '@/lib/types';
+
 
 const formSchema = z.object({
   name: z.string().min(1, 'Please enter a name for the EMI.'),
@@ -39,10 +41,12 @@ const formSchema = z.object({
 });
 
 type AddEmiDialogProps = {
-    onAddEmi: (data: z.infer<typeof formSchema>) => Promise<void>;
+    onAddOrUpdateEmi: (data: z.infer<typeof formSchema>, id?: string) => Promise<void>;
+    existingEmi?: Emi | null;
+    onClose: () => void;
 };
 
-export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
+export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiDialogProps) {
   const [open, setOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,28 +54,56 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
       name: '',
       amount: 0,
       monthsRemaining: 1,
+      paymentDate: new Date(),
     },
   });
 
+  useEffect(() => {
+    if (existingEmi) {
+      form.reset({
+        ...existingEmi,
+        paymentDate: existingEmi.paymentDate.toDate(),
+      });
+      setOpen(true);
+    } else {
+        form.reset({
+            name: '',
+            amount: 0,
+            monthsRemaining: 1,
+            paymentDate: new Date(),
+        });
+    }
+  }, [existingEmi, form]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+    }
+    setOpen(isOpen);
+  };
+
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await onAddEmi(values);
+    await onAddOrUpdateEmi(values, existingEmi?.id);
     form.reset();
-    setOpen(false);
+    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-            <Landmark className="mr-2 h-4 w-4"/>
-            Add Running EMI
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!existingEmi && (
+        <DialogTrigger asChild>
+            <Button variant="outline">
+                <Landmark className="mr-2 h-4 w-4"/>
+                Add Running EMI
+            </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add Running EMI</DialogTitle>
+          <DialogTitle>{existingEmi ? 'Edit' : 'Add'} Running EMI</DialogTitle>
           <DialogDescription>
-            Enter the details of your ongoing EMI.
+            {existingEmi ? 'Update the details of your ongoing EMI.' : 'Enter the details of your ongoing EMI.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -150,7 +182,7 @@ export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
               )}
             />
             <DialogFooter>
-              <Button type="submit">Add EMI</Button>
+              <Button type="submit">{existingEmi ? 'Save Changes' : 'Add EMI'}</Button>
             </DialogFooter>
           </form>
         </Form>

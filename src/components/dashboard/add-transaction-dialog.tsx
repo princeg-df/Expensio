@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -35,6 +35,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import type { Transaction } from '@/lib/types';
+
 
 const formSchema = z.object({
   type: z.enum(['expense', 'income']),
@@ -47,10 +49,12 @@ const expenseCategories = ['Food', 'Travel', 'Shopping', 'Utilities', 'Entertain
 const incomeCategories = ['Salary', 'Freelance', 'Investment', 'Other'];
 
 type AddTransactionDialogProps = {
-    onAddTransaction: (data: z.infer<typeof formSchema>) => Promise<void>;
+    onAddOrUpdateTransaction: (data: z.infer<typeof formSchema>, id?: string) => Promise<void>;
+    existingTransaction?: Transaction | null;
+    onClose: () => void;
 };
 
-export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogProps) {
+export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransaction, onClose }: AddTransactionDialogProps) {
   const [open, setOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -61,28 +65,55 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
       date: new Date(),
     },
   });
-
+  
   const transactionType = form.watch('type');
+  
+  useEffect(() => {
+    if (existingTransaction) {
+      form.reset({
+        ...existingTransaction,
+        date: existingTransaction.date.toDate(),
+      });
+      setOpen(true);
+    } else {
+        form.reset({
+            type: 'expense',
+            category: '',
+            amount: 0,
+            date: new Date(),
+        });
+    }
+  }, [existingTransaction, form]);
+  
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+    }
+    setOpen(isOpen);
+  };
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await onAddTransaction(values);
+    await onAddOrUpdateTransaction(values, existingTransaction?.id);
     form.reset();
-    setOpen(false);
+    handleOpenChange(false);
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-            <PlusCircle className="mr-2 h-4 w-4"/>
-            Add Transaction
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!existingTransaction && (
+        <DialogTrigger asChild>
+            <Button>
+                <PlusCircle className="mr-2 h-4 w-4"/>
+                Add Transaction
+            </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Transaction</DialogTitle>
+          <DialogTitle>{existingTransaction ? 'Edit' : 'Add New'} Transaction</DialogTitle>
           <DialogDescription>
-            Enter the details of your income or expense.
+            {existingTransaction ? 'Update the details of your transaction.' : 'Enter the details of your income or expense.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -114,7 +145,7 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
@@ -181,7 +212,7 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
               )}
             />
             <DialogFooter>
-              <Button type="submit">Add Transaction</Button>
+              <Button type="submit">{existingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
             </DialogFooter>
           </form>
         </Form>

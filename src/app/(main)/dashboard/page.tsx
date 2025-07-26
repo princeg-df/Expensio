@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
@@ -16,8 +16,16 @@ import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
 import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
-import { ArrowDown, ArrowUp, IndianRupee, Landmark, PiggyBank, Receipt, Scale, Repeat } from 'lucide-react';
+
+import { ArrowDown, ArrowUp, PiggyBank, Repeat } from 'lucide-react';
+
+type DeletionInfo = {
+  id: string;
+  type: 'transaction' | 'emi' | 'autopay';
+} | null;
+
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -26,6 +34,13 @@ export default function DashboardPage() {
   const [autopays, setAutopays] = useState<Autopay[]>([]);
   const [budget, setBudget] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
+  
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingEmi, setEditingEmi] = useState<Emi | null>(null);
+  const [editingAutopay, setEditingAutopay] = useState<Autopay | null>(null);
+
+  const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
+  
 
   useEffect(() => {
     if (!user) return;
@@ -79,33 +94,64 @@ export default function DashboardPage() {
     setBudget(newBudget);
   };
   
-  const handleAddTransaction = async (data: { type: 'expense' | 'income'; category: string; amount: number; date: Date }) => {
+  const handleAddOrUpdateTransaction = async (data: Omit<Transaction, 'id' | 'date'> & { date: Date }, id?: string) => {
     if (!user) return;
-    await addDoc(collection(db, `users/${user.uid}/transactions`), {
+    const transactionData = {
       ...data,
       date: Timestamp.fromDate(data.date),
       amount: Number(data.amount),
-    });
+    };
+
+    if (id) {
+      await updateDoc(doc(db, `users/${user.uid}/transactions`, id), transactionData);
+    } else {
+      await addDoc(collection(db, `users/${user.uid}/transactions`), transactionData);
+    }
+    setEditingTransaction(null);
   };
 
-  const handleAddEmi = async (data: { name: string; amount: number; monthsRemaining: number; paymentDate: Date }) => {
+  const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
     if (!user) return;
-    await addDoc(collection(db, `users/${user.uid}/emis`), {
+     const emiData = {
       ...data,
       paymentDate: Timestamp.fromDate(data.paymentDate),
       amount: Number(data.amount),
       monthsRemaining: Number(data.monthsRemaining),
-    });
+    };
+    if (id) {
+        await updateDoc(doc(db, `users/${user.uid}/emis`, id), emiData);
+    } else {
+        await addDoc(collection(db, `users/${user.uid}/emis`), emiData);
+    }
+    setEditingEmi(null);
   };
   
-  const handleAddAutopay = async (data: { name: string; amount: number; paymentDate: Date; category: 'Subscription' | 'Investment' | 'Insurance' | 'Other', frequency: 'Monthly' | 'Quarterly' | 'Yearly' }) => {
+  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
     if (!user) return;
-    await addDoc(collection(db, `users/${user.uid}/autopays`), {
+    const autopayData = {
       ...data,
       paymentDate: Timestamp.fromDate(data.paymentDate),
       amount: Number(data.amount),
-    });
+    };
+    if (id) {
+      await updateDoc(doc(db, `users/${user.uid}/autopays`, id), autopayData);
+    } else {
+      await addDoc(collection(db, `users/${user.uid}/autopays`), autopayData);
+    }
+    setEditingAutopay(null);
   };
+
+  const handleDelete = async () => {
+    if (!user || !deletionInfo) return;
+    const { id, type } = deletionInfo;
+    await deleteDoc(doc(db, `users/${user.uid}/${type}s`, id));
+    setDeletionInfo(null);
+  };
+  
+  const openDeleteDialog = (id: string, type: 'transaction' | 'emi' | 'autopay') => {
+    setDeletionInfo({ id, type });
+  };
+
 
   const { totalIncome, totalExpenses, totalFixedPayments, balance } = useMemo(() => {
     const income = transactions
@@ -145,9 +191,24 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
            <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
-           <AddEmiDialog onAddEmi={handleAddEmi} />
-           <AddAutopayDialog onAddAutopay={handleAddAutopay} />
-           <AddTransactionDialog onAddTransaction={handleAddTransaction} />
+           <AddEmiDialog 
+              key={`emi-${editingEmi?.id || 'new'}`}
+              onAddOrUpdateEmi={handleAddOrUpdateEmi}
+              existingEmi={editingEmi}
+              onClose={() => setEditingEmi(null)}
+            />
+           <AddAutopayDialog 
+              key={`autopay-${editingAutopay?.id || 'new'}`}
+              onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
+              existingAutopay={editingAutopay}
+              onClose={() => setEditingAutopay(null)}
+            />
+           <AddTransactionDialog 
+              key={`transaction-${editingTransaction?.id || 'new'}`}
+              onAddOrUpdateTransaction={handleAddOrUpdateTransaction}
+              existingTransaction={editingTransaction}
+              onClose={() => setEditingTransaction(null)}
+            />
         </div>
       </div>
 
@@ -166,16 +227,28 @@ export default function DashboardPage() {
             <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Income</button>
             <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Expenses</button>
           </div>
-          <TransactionTable transactions={filteredTransactions} />
+          <TransactionTable 
+            transactions={filteredTransactions} 
+            onEdit={setEditingTransaction}
+            onDelete={(id) => openDeleteDialog(id, 'transaction')}
+          />
         </div>
         <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4">Running EMIs</h2>
-              <EmiTable emis={emis} />
+               <EmiTable 
+                emis={emis} 
+                onEdit={setEditingEmi}
+                onDelete={(id) => openDeleteDialog(id, 'emi')}
+               />
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4">Autopay Subscriptions</h2>
-              <AutopayTable autopays={autopays} />
+               <AutopayTable 
+                autopays={autopays} 
+                onEdit={setEditingAutopay}
+                onDelete={(id) => openDeleteDialog(id, 'autopay')}
+               />
             </div>
             <div>
               <h2 className="text-2xl font-bold tracking-tight mb-4">Expense Analysis</h2>
@@ -183,6 +256,22 @@ export default function DashboardPage() {
             </div>
         </div>
       </div>
+
+      <AlertDialog open={!!deletionInfo} onOpenChange={() => setDeletionInfo(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this
+              entry from your records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletionInfo(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
