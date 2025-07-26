@@ -8,6 +8,7 @@ import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { addMonths } from 'date-fns';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -62,9 +63,47 @@ export default function DashboardPage() {
     const emisQuery = query(collection(db, `users/${user.uid}/emis`));
     const emisUnsubscribe = onSnapshot(emisQuery, (querySnapshot) => {
       const emisData: Emi[] = [];
+      const batch = writeBatch(db);
+      const currentDate = new Date();
+      let hasUpdates = false;
+
       querySnapshot.forEach((doc) => {
-        emisData.push({ id: doc.id, ...doc.data() } as Emi);
+        let emi = { id: doc.id, ...doc.data() } as Emi;
+        const paymentDate = emi.paymentDate.toDate();
+
+        if (paymentDate < currentDate) {
+            let monthsPassed = 0;
+            let nextPaymentDate = paymentDate;
+
+            while(nextPaymentDate < currentDate) {
+              monthsPassed++;
+              nextPaymentDate = addMonths(nextPaymentDate, 1);
+            }
+            
+            const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
+
+            if (newMonthsRemaining <= 0) {
+                batch.delete(doc.ref);
+                hasUpdates = true;
+            } else {
+                emi.monthsRemaining = newMonthsRemaining;
+                emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
+                batch.update(doc.ref, { 
+                    monthsRemaining: newMonthsRemaining,
+                    paymentDate: Timestamp.fromDate(nextPaymentDate)
+                });
+                hasUpdates = true;
+                emisData.push(emi);
+            }
+        } else {
+            emisData.push(emi);
+        }
       });
+      
+      if(hasUpdates) {
+          batch.commit().catch(console.error);
+      }
+      
       setEmis(emisData);
     });
 
@@ -82,7 +121,6 @@ export default function DashboardPage() {
       if (docSnap.exists()) {
         setBudget(docSnap.data().budget || 0);
       } else {
-        // Handle case where user document might not exist yet
         setDoc(userDocRef, { budget: 0 }, { merge: true });
       }
     });
@@ -384,5 +422,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
