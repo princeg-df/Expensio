@@ -31,6 +31,7 @@ export default function UserDetailPage() {
 
   const fetchData = useCallback(async () => {
     if (!userId || !adminUser) return;
+    setLoading(true);
     try {
       // Fetch user details
       const userDocRef = doc(db, 'users', userId);
@@ -65,7 +66,11 @@ export default function UserDetailPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (adminUser?.email !== ADMIN_EMAIL) {
+    if (!adminUser) {
+        router.replace('/login');
+        return;
+    }
+    if (adminUser.email !== ADMIN_EMAIL) {
       router.replace('/dashboard');
       return;
     }

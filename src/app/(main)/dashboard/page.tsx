@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
-import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
+import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit, Loader2 } from 'lucide-react';
 
 type DeletionInfo = {
   id: string;
@@ -31,7 +31,7 @@ type DeletionInfo = {
 
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
@@ -122,6 +122,7 @@ export default function DashboardPage() {
 
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) return;
 
     fetchData(); 
@@ -137,7 +138,7 @@ export default function DashboardPage() {
       autopaysUnsubscribe();
       userUnsubscribe();
     }
-  }, [user, fetchData]);
+  }, [user, authLoading, fetchData]);
 
   const handleSetBudget = async (newBudget: number) => {
     if (!user) return;
@@ -237,6 +238,14 @@ export default function DashboardPage() {
     if (activeFilter === 'all') return transactions;
     return transactions.filter(t => t.type === activeFilter);
   }, [transactions, activeFilter]);
+
+  if (authLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-16 w-16 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -381,5 +390,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
