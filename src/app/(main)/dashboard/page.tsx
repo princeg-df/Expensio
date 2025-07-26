@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const handleSetBudget = async (newBudget: number) => {
     if (!user) return;
     const userDocRef = doc(db, `users/${user.uid}`);
-    await updateDoc(userDocRef, { budget: newBudget });
+    await setDoc(userDocRef, { budget: newBudget }, { merge: true });
     setBudget(newBudget);
   };
   
