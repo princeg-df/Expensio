@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -44,6 +44,9 @@ type AppDrawerProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
 }
+
+const ADMIN_EMAIL = 'imshardadeen1@gmail.com';
+
 
 export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   const router = useRouter();
@@ -307,6 +310,13 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                   <LineChart className="mr-2 h-4 w-4" /> Reports
                 </Button>
               </Link>
+               {user?.email === ADMIN_EMAIL && (
+                <Link href="/admin" onClick={() => onOpenChange(false)}>
+                    <Button variant={pathname.startsWith('/admin') ? 'secondary' : 'ghost'} className="w-full justify-start">
+                        <Shield className="mr-2 h-4 w-4" /> Admin
+                    </Button>
+                </Link>
+               )}
               <Separator />
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
               <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>
