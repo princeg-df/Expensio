@@ -97,7 +97,7 @@ export default function DashboardPage() {
     });
   };
   
-  const handleAddAutopay = async (data: { name: string; amount: number; paymentDate: Date; category: 'Subscription' | 'Investment' | 'Insurance' | 'Other' }) => {
+  const handleAddAutopay = async (data: { name: string; amount: number; paymentDate: Date; category: 'Subscription' | 'Investment' | 'Insurance' | 'Other', frequency: 'Monthly' | 'Quarterly' | 'Yearly' }) => {
     if (!user) return;
     await addDoc(collection(db, `users/${user.uid}/autopays`), {
       ...data,

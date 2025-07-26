@@ -17,6 +17,7 @@ export function AutopayTable({ autopays }: AutopayTableProps) {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Category</TableHead>
+            <TableHead>Frequency</TableHead>
             <TableHead>Payment Day</TableHead>
             <TableHead className="text-right">Amount</TableHead>
           </TableRow>
@@ -24,7 +25,7 @@ export function AutopayTable({ autopays }: AutopayTableProps) {
         <TableBody>
           {sortedAutopays.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+              <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                 No autopay setup yet.
               </TableCell>
             </TableRow>
@@ -38,8 +39,11 @@ export function AutopayTable({ autopays }: AutopayTableProps) {
                 <TableCell>
                   <Badge variant="outline">{autopay.category}</Badge>
                 </TableCell>
+                 <TableCell>
+                   <Badge variant="secondary">{autopay.frequency}</Badge>
+                </TableCell>
                 <TableCell>
-                  {new Date(autopay.paymentDate.seconds * 1000).toLocaleDateString(undefined, { day: 'numeric' })}
+                  {new Date(autopay.paymentDate.seconds * 1000).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                 </TableCell>
                 <TableCell className="text-right">
                   ₹{autopay.amount.toFixed(2)}

@@ -43,6 +43,7 @@ const formSchema = z.object({
     required_error: "A payment day is required.",
   }),
   category: z.enum(['Subscription', 'Investment', 'Insurance', 'Other']),
+  frequency: z.enum(['Monthly', 'Quarterly', 'Yearly']),
 });
 
 type AddAutopayDialogProps = {
@@ -56,7 +57,8 @@ export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
     defaultValues: {
       name: '',
       amount: 0,
-      category: 'Subscription'
+      category: 'Subscription',
+      frequency: 'Monthly',
     },
   });
 
@@ -124,7 +126,7 @@ export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monthly Amount</FormLabel>
+                  <FormLabel>Amount</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.00" {...field} />
                   </FormControl>
@@ -134,10 +136,32 @@ export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
             />
             <FormField
               control={form.control}
+              name="frequency"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Frequency</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a frequency" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="Monthly">Monthly</SelectItem>
+                      <SelectItem value="Quarterly">Quarterly</SelectItem>
+                      <SelectItem value="Yearly">Yearly</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
               name="paymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Monthly Payment Day</FormLabel>
+                  <FormLabel>Next Payment Day</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -148,7 +172,7 @@ export function AddAutopayDialog({ onAddAutopay }: AddAutopayDialogProps) {
                             !field.value && 'text-muted-foreground'
                           )}
                         >
-                          {field.value ? `Day ${format(field.value, 'd')}` : <span>Pick a day</span>}
+                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
                           <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                         </Button>
                       </FormControl>
