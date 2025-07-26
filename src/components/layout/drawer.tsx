@@ -312,10 +312,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     reader.readAsText(file);
   };
   
-  const handleRefresh = () => {
-    window.location.reload();
-  }
-
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onOpenChange}>
@@ -330,9 +326,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                   <LineChart className="mr-2 h-4 w-4" /> Reports
                 </Button>
               </Link>
-              <Button variant="ghost" className="w-full justify-start" onClick={handleRefresh}>
-                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
-              </Button>
               <Separator />
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
               <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>

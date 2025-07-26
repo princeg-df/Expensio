@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { AppDrawer } from '@/components/layout/drawer';
 
@@ -17,6 +17,10 @@ export default function MainLayout({
 }) {
   const pathname = usePathname();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
 
   return (
@@ -33,9 +37,14 @@ export default function MainLayout({
               </Link>
             </div>
             
-            <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(true)}>
-                <Menu className="h-6 w-6" />
-            </Button>
+            <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={handleRefresh}>
+                    <RefreshCw className="h-6 w-6" />
+                </Button>
+                <Button variant="ghost" size="icon" onClick={() => setIsDrawerOpen(true)}>
+                    <Menu className="h-6 w-6" />
+                </Button>
+            </div>
             
         </header>
         <main className="flex-1 p-4 md:p-8">
