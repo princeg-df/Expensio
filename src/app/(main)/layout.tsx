@@ -2,14 +2,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, Menu, MoreVertical, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +17,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
@@ -37,6 +33,8 @@ import { useToast } from '@/hooks/use-toast';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 
 export default function MainLayout({
@@ -45,6 +43,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAuth();
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
@@ -337,10 +336,18 @@ export default function MainLayout({
       <div className="flex flex-col">
         <header className="flex h-16 items-center justify-between border-b border-border bg-card/80 px-4 md:px-8 backdrop-blur-sm sticky top-0 z-10">
             <div>
+              <Link href="/dashboard">
                 <ExpensioLogo />
+              </Link>
             </div>
             {user && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
+              <Link href="/reports">
+                <Button variant="ghost" size="icon" title="Reports" className={cn(pathname === '/reports' && 'bg-accent/20')}>
+                  <LineChart className="h-5 w-5" />
+                </Button>
+              </Link>
+
               <Button variant="ghost" size="icon" onClick={handleRefresh} title="Refresh Data">
                 <RefreshCw className="h-5 w-5" />
               </Button>
