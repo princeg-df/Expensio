@@ -244,6 +244,18 @@ export default function DashboardPage() {
               existingTransaction={editingTransaction}
               onClose={() => setEditingTransaction(null)}
             />
+            <AddEmiDialog 
+              key={`emi-${editingEmi?.id || 'new'}`}
+              onAddOrUpdateEmi={handleAddOrUpdateEmi}
+              existingEmi={editingEmi}
+              onClose={() => setEditingEmi(null)}
+            />
+            <AddAutopayDialog 
+              key={`autopay-${editingAutopay?.id || 'new'}`}
+              onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
+              existingAutopay={editingAutopay}
+              onClose={() => setEditingAutopay(null)}
+            />
         </div>
       </div>
 
@@ -293,12 +305,6 @@ export default function DashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Running EMIs</CardTitle>
-                 <AddEmiDialog 
-                    key={`emi-${editingEmi?.id || 'new'}`}
-                    onAddOrUpdateEmi={handleAddOrUpdateEmi}
-                    existingEmi={editingEmi}
-                    onClose={() => setEditingEmi(null)}
-                  />
               </CardHeader>
               <CardContent>
                <EmiTable 
@@ -312,12 +318,6 @@ export default function DashboardPage() {
             <Card>
                <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle>Autopay</CardTitle>
-                 <AddAutopayDialog 
-                    key={`autopay-${editingAutopay?.id || 'new'}`}
-                    onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
-                    existingAutopay={editingAutopay}
-                    onClose={() => setEditingAutopay(null)}
-                  />
               </CardHeader>
               <CardContent>
                <AutopayTable 

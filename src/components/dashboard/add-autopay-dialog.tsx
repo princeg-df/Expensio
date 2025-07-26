@@ -103,8 +103,9 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, onClos
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {!existingAutopay && (
         <DialogTrigger asChild>
-          <Button variant="ghost" size="icon">
-              <Repeat className="h-4 w-4"/>
+          <Button variant="secondary">
+              <Repeat className="mr-2 h-4 w-4"/>
+              Add Autopay
           </Button>
         </DialogTrigger>
       )}

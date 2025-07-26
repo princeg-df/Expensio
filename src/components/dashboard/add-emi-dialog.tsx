@@ -93,8 +93,9 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, onClose }: AddEmiD
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {!existingEmi && (
         <DialogTrigger asChild>
-            <Button variant="ghost" size="icon">
-                <Landmark className="h-4 w-4"/>
+            <Button variant="secondary">
+                <Landmark className="mr-2 h-4 w-4"/>
+                Add EMI
             </Button>
         </DialogTrigger>
       )}
