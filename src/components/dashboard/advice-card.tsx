@@ -1,10 +1,9 @@
-import type { FinancialAdvice } from '@/lib/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Lightbulb } from 'lucide-react';
 
 type AdviceCardProps = {
-  advice: FinancialAdvice | null;
+  advice: { advice: string } | null;
   isLoading: boolean;
 };
 
