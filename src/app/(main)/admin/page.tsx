@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 type AppUser = {
   id: string;
   email: string;
-  createdAt: { toDate: () => Date };
+  createdAt?: { toDate: () => Date };
 };
 
 const ADMIN_EMAIL = 'imshardadeen1@gmail.com';
@@ -107,7 +107,11 @@ export default function AdminPage() {
                 users.map((appUser) => (
                   <TableRow key={appUser.id}>
                     <TableCell className="font-medium">{appUser.email}</TableCell>
-                    <TableCell>{appUser.createdAt.toDate().toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      {appUser.createdAt
+                        ? appUser.createdAt.toDate().toLocaleDateString()
+                        : 'N/A'}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/admin/${appUser.id}`}>
