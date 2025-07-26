@@ -1,0 +1,414 @@
+
+'use client';
+
+import { useState, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import { signOut, sendPasswordResetEmail } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { useAuth } from '@/providers/app-provider';
+import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
+import { ExpensioLogo } from '@/components/expensio-logo';
+import { Button } from '@/components/ui/button';
+import { LogOut, LineChart, Trash2, Download, Upload, RefreshCw, ChevronDown, Lock } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import type { Transaction, Emi, Autopay } from '@/lib/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+
+type AppDrawerProps = {
+    isOpen: boolean;
+    onOpenChange: (isOpen: boolean) => void;
+}
+
+export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isClearingData, setIsClearingData] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    onOpenChange(false);
+    router.push('/login');
+  };
+  
+  const handleChangePassword = async () => {
+    if(!user || !user.email) return;
+
+    try {
+        await sendPasswordResetEmail(auth, user.email);
+        toast({
+            title: "Password Reset Email Sent",
+            description: "Please check your inbox to reset your password.",
+        });
+    } catch (error) {
+        console.error("Error sending password reset email: ", error);
+        toast({
+            variant: 'destructive',
+            title: "Error",
+            description: "Could not send password reset email. Please try again.",
+        });
+    }
+  }
+
+  const handleClearAllData = async () => {
+    if (!user) return;
+
+    try {
+      const collections = ['transactions', 'emis', 'autopays'];
+      const batch = writeBatch(db);
+
+      for (const col of collections) {
+        const snapshot = await getDocs(query(collection(db, `users/${user.uid}/${col}`)));
+        snapshot.forEach(doc => {
+          batch.delete(doc.ref);
+        });
+      }
+
+      const userDocRef = doc(db, `users/${user.uid}`);
+      batch.update(userDocRef, { budget: 0 });
+
+      await batch.commit();
+
+      toast({
+        title: "Data Cleared",
+        description: "All your financial data has been successfully cleared.",
+      });
+    } catch (error) {
+      console.error("Error clearing data: ", error);
+      toast({
+        variant: 'destructive',
+        title: "Error",
+        description: "Could not clear all data. Please try again.",
+      });
+    } finally {
+      setIsClearingData(false);
+      onOpenChange(false);
+    }
+  };
+
+  const handleExportJson = async () => {
+    if (!user) return;
+
+    try {
+        const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+        const transactionsSnapshot = await getDocs(transactionsQuery);
+        const transactions = transactionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, date: (doc.data().date as any).toDate() })) as Transaction[];
+
+        const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+        const emisSnapshot = await getDocs(emisQuery);
+        const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as any).toDate() })) as Emi[];
+        
+        const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+        const autopaysSnapshot = await getDocs(autopaysQuery);
+        const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as any).toDate() })) as Autopay[];
+
+        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDocSnap = await getDoc(userDocRef);
+        const budget = userDocSnap.exists() ? userDocSnap.data().budget : 0;
+
+        const dataToExport = {
+            transactions,
+            emis,
+            autopays,
+            budget
+        };
+
+        const dataStr = JSON.stringify(dataToExport, null, 2);
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+
+        const exportFileDefaultName = 'expensio_data.json';
+
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', exportFileDefaultName);
+        linkElement.click();
+        
+        toast({
+            title: "Export Successful",
+            description: "Your data has been exported as a JSON file.",
+        });
+    } catch(e) {
+        toast({
+            variant: 'destructive',
+            title: "Error",
+            description: "Could not export data. Please try again.",
+        });
+    }
+  }
+
+  const handleExportPdf = async () => {
+    if (!user) return;
+
+    try {
+      const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+      const transactionsSnapshot = await getDocs(transactionsQuery);
+      const transactions = transactionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, date: (doc.data().date as Timestamp).toDate() }));
+
+      const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+      const emisSnapshot = await getDocs(emisQuery);
+      const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+
+      const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+      const autopaysSnapshot = await getDocs(autopaysQuery);
+      const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+      
+      const userDocRef = doc(db, `users/${user.uid}`);
+      const userDocSnap = await getDoc(userDocRef);
+      const budget = userDocSnap.exists() ? userDocSnap.data().budget : 0;
+      
+      const docPdf = new jsPDF();
+      
+      docPdf.setFontSize(22);
+      docPdf.text("Expensio Financial Report", 14, 22);
+      docPdf.setFontSize(12);
+      docPdf.text(`Report for: ${user.email}`, 14, 30);
+      docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
+      
+      let lastTableY = 40;
+
+      if(transactions.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 10,
+            head: [['Date', 'Type', 'Category', 'Amount']],
+            body: transactions.map(t => [ t.date.toLocaleDateString(), t.type, t.category, t.amount.toFixed(2) ]),
+            headStyles: { fillColor: [13, 13, 13] },
+            didDrawPage: (data) => { docPdf.setFontSize(18); docPdf.text('Transactions', 14, data.settings.margin.top); }
+        });
+        lastTableY = (docPdf as any).lastAutoTable.finalY;
+      }
+      
+      if(emis.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 15,
+            head: [['Name', 'Amount', 'Months Remaining', 'Next Payment']],
+            body: emis.map(e => [ e.name, e.amount.toFixed(2), e.monthsRemaining, e.paymentDate.toLocaleDateString() ]),
+            headStyles: { fillColor: [13, 13, 13] },
+            didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Running EMIs', 14, lastTableY + 10); }
+        });
+        lastTableY = (docPdf as any).lastAutoTable.finalY;
+      }
+
+       if(autopays.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 15,
+            head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
+            body: autopays.map(a => [ a.name, a.category, a.frequency, a.amount.toFixed(2), a.paymentDate.toLocaleDateString() ]),
+            headStyles: { fillColor: [13, 13, 13] },
+            didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Autopay', 14, lastTableY + 10); }
+        });
+       }
+
+      docPdf.save('expensio_report.pdf');
+
+       toast({
+            title: "Export Successful",
+            description: "Your data has been exported as a PDF file.",
+        });
+
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: "Error", description: "Could not export PDF. Please try again." });
+    }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user) return;
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const text = e.target?.result;
+        if (typeof text !== 'string') throw new Error('File could not be read');
+        
+        const data = JSON.parse(text);
+        const batch = writeBatch(db);
+
+        // Clear existing data before import
+        const collections = ['transactions', 'emis', 'autopays'];
+         for (const col of collections) {
+            const snapshot = await getDocs(query(collection(db, `users/${user.uid}/${col}`)));
+            snapshot.forEach(doc => {
+            batch.delete(doc.ref);
+            });
+        }
+
+        if (data.transactions && Array.isArray(data.transactions)) {
+          data.transactions.forEach((t: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/transactions`));
+            const transactionData = { ...t, date: Timestamp.fromDate(new Date(t.date)) };
+            delete transactionData.id;
+            batch.set(docRef, transactionData);
+          });
+        }
+        if (data.emis && Array.isArray(data.emis)) {
+          data.emis.forEach((e: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/emis`));
+            const emiData = { ...e, paymentDate: Timestamp.fromDate(new Date(e.paymentDate)) };
+            delete emiData.id;
+            batch.set(docRef, emiData);
+          });
+        }
+        if (data.autopays && Array.isArray(data.autopays)) {
+          data.autopays.forEach((a: any) => {
+            const docRef = doc(collection(db, `users/${user.uid}/autopays`));
+            const autopayData = { ...a, paymentDate: Timestamp.fromDate(new Date(a.paymentDate)) };
+            delete autopayData.id;
+            batch.set(docRef, autopayData);
+          });
+        }
+
+        if (data.budget) {
+          const userDocRef = doc(db, `users/${user.uid}`);
+          batch.set(userDocRef, { budget: data.budget }, { merge: true });
+        }
+
+        await batch.commit();
+
+        toast({ title: "Import Successful", description: "Your data has been imported successfully." });
+        onOpenChange(false);
+        window.location.reload();
+      } catch (error) {
+        console.error("Error importing data: ", error);
+        toast({ variant: 'destructive', title: "Import Failed", description: "The file is not a valid JSON backup file." });
+      } finally {
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+  
+  const handleRefresh = () => {
+    window.location.reload();
+  }
+
+  return (
+    <>
+      <Sheet open={isOpen} onOpenChange={onOpenChange}>
+        <SheetContent className="flex flex-col">
+          <SheetHeader className="p-4">
+            <SheetTitle><ExpensioLogo /></SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <nav className="flex flex-col gap-2 p-4">
+               <Link href="/reports" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/reports' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <LineChart className="mr-2 h-4 w-4" /> Reports
+                </Button>
+              </Link>
+              <Button variant="ghost" className="w-full justify-start" onClick={handleRefresh}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Refresh Data
+              </Button>
+              <Separator />
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
+              <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>
+                <Upload className="mr-2 h-4 w-4" /> Import Data
+              </Button>
+               <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                     <Button variant="ghost" className="w-full justify-start">
+                        <Download className="mr-2 h-4 w-4" /> Export Data <ChevronDown className="ml-auto h-4 w-4" />
+                     </Button>
+                  </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handleExportJson}>Export as JSON</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPdf}>Export as PDF</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Separator />
+               <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
+                 <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
+               </Button>
+            </nav>
+          </div>
+          <div className="p-4 border-t">
+            {user && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                   <Avatar className="h-10 w-10">
+                    <AvatarImage src={`https://avatar.vercel.sh/${user.email}.png`} alt={user.email ?? ''} />
+                     <AvatarFallback style={{ backgroundColor: '#1a1a1a', color: '#ffffff' }}>
+                       {user.email?.[0].toUpperCase()}
+                     </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium">{user.email}</span>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon"><ChevronDown className="h-5 w-5"/></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleChangePassword}>
+                      <Lock className="mr-2 h-4 w-4" />
+                      Change Password
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={isClearingData} onOpenChange={setIsClearingData}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete all of your data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={handleClearAllData}
+            >
+              Yes, delete everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
