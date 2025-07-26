@@ -23,49 +23,37 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, PlusCircle } from 'lucide-react';
+import { Calendar as CalendarIcon, Landmark } from 'lucide-react';
 
 const formSchema = z.object({
-  type: z.enum(['expense', 'income']),
-  category: z.string().min(1, 'Please select a category.'),
+  name: z.string().min(1, 'Please enter a name for the EMI.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-  date: z.date(),
+  monthsRemaining: z.coerce.number().min(1, 'Months remaining must be at least 1.'),
+  paymentDate: z.date(),
 });
 
-const expenseCategories = ['Food', 'Travel', 'Shopping', 'Utilities', 'Entertainment', 'Other'];
-const incomeCategories = ['Salary', 'Freelance', 'Investment', 'Other'];
-
-type AddTransactionDialogProps = {
-    onAddTransaction: (data: z.infer<typeof formSchema>) => Promise<void>;
+type AddEmiDialogProps = {
+    onAddEmi: (data: z.infer<typeof formSchema>) => Promise<void>;
 };
 
-export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogProps) {
+export function AddEmiDialog({ onAddEmi }: AddEmiDialogProps) {
   const [open, setOpen] = useState(false);
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      type: 'expense',
-      category: '',
+      name: '',
       amount: 0,
-      date: new Date(),
+      monthsRemaining: 1,
+      paymentDate: new Date(),
     },
   });
 
-  const transactionType = form.watch('type');
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await onAddTransaction(values);
+    await onAddEmi(values);
     form.reset();
     setOpen(false);
   }
@@ -73,71 +61,39 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-            <PlusCircle className="mr-2 h-4 w-4"/>
-            Add Transaction
+        <Button variant="outline">
+            <Landmark className="mr-2 h-4 w-4"/>
+            Add Running EMI
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Add New Transaction</DialogTitle>
+          <DialogTitle>Add Running EMI</DialogTitle>
           <DialogDescription>
-            Enter the details of your income or expense.
+            Enter the details of your ongoing EMI.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="type"
+              name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a transaction type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="expense">Expense</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>EMI Name</FormLabel>
+                   <FormControl>
+                    <Input placeholder="e.g., Car Loan" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="category"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Category</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {(transactionType === 'expense' ? expenseCategories : incomeCategories).map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
+             <FormField
               control={form.control}
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount</FormLabel>
+                  <FormLabel>Monthly Amount</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.00" {...field} />
                   </FormControl>
@@ -145,12 +101,25 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="monthsRemaining"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Months Remaining</FormLabel>
+                  <FormControl>
+                    <Input type="number" placeholder="e.g., 12" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
-              name="date"
+              name="paymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Date</FormLabel>
+                  <FormLabel>Next Payment Date</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -171,7 +140,6 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
                         mode="single"
                         selected={field.value}
                         onSelect={field.onChange}
-                        disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
                         initialFocus
                       />
                     </PopoverContent>
@@ -181,7 +149,7 @@ export function AddTransactionDialog({ onAddTransaction }: AddTransactionDialogP
               )}
             />
             <DialogFooter>
-              <Button type="submit">Add Transaction</Button>
+              <Button type="submit">Add EMI</Button>
             </DialogFooter>
           </form>
         </Form>

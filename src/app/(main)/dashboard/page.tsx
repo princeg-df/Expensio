@@ -4,31 +4,45 @@ import { useState, useEffect, useMemo } from 'react';
 import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import type { Transaction } from '@/lib/types';
+import type { Transaction, Emi } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
 import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { AddTransactionDialog } from '@/components/dashboard/add-transaction-dialog';
+import { AddEmiDialog } from '@/components/dashboard/add-emi-dialog';
+import { EmiTable } from '@/components/dashboard/emi-table';
 import { BudgetSetter } from '@/components/dashboard/budget-setter';
 
-import { DollarSign, Landmark, Receipt } from 'lucide-react';
+import { ArrowDown, ArrowUp, IndianRupee, Landmark, PiggyBank, Receipt, Scale } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [emis, setEmis] = useState<Emi[]>([]);
   const [budget, setBudget] = useState(0);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
 
   useEffect(() => {
     if (!user) return;
 
-    const q = query(collection(db, `users/${user.uid}/transactions`));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+    const transactionsUnsubscribe = onSnapshot(transactionsQuery, (querySnapshot) => {
       const transactionsData: Transaction[] = [];
       querySnapshot.forEach((doc) => {
         transactionsData.push({ id: doc.id, ...doc.data() } as Transaction);
       });
       setTransactions(transactionsData);
+    });
+
+    const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+    const emisUnsubscribe = onSnapshot(emisQuery, (querySnapshot) => {
+      const emisData: Emi[] = [];
+      querySnapshot.forEach((doc) => {
+        emisData.push({ id: doc.id, ...doc.data() } as Emi);
+      });
+      setEmis(emisData);
     });
 
     const userDocRef = doc(db, `users/${user.uid}`);
@@ -38,7 +52,10 @@ export default function DashboardPage() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      transactionsUnsubscribe();
+      emisUnsubscribe();
+    }
   }, [user]);
 
   const handleSetBudget = async (newBudget: number) => {
@@ -48,7 +65,7 @@ export default function DashboardPage() {
     setBudget(newBudget);
   };
   
-  const handleAddTransaction = async (data: { type: 'expense' | 'emi'; category: string; amount: number; date: Date }) => {
+  const handleAddTransaction = async (data: { type: 'expense' | 'income'; category: string; amount: number; date: Date }) => {
     if (!user) return;
     await addDoc(collection(db, `users/${user.uid}/transactions`), {
       ...data,
@@ -57,16 +74,35 @@ export default function DashboardPage() {
     });
   };
 
-  const { totalExpenses, totalEmis, remainingBudget } = useMemo(() => {
+  const handleAddEmi = async (data: { name: string; amount: number; monthsRemaining: number; paymentDate: Date }) => {
+    if (!user) return;
+    await addDoc(collection(db, `users/${user.uid}/emis`), {
+      ...data,
+      paymentDate: Timestamp.fromDate(data.paymentDate),
+      amount: Number(data.amount),
+      monthsRemaining: Number(data.monthsRemaining),
+    });
+  };
+
+  const { totalIncome, totalExpenses, totalEmis, balance } = useMemo(() => {
+    const totalIncome = transactions
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
     const totalExpenses = transactions
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
-    const totalEmis = transactions
-      .filter((t) => t.type === 'emi')
+    const totalEmis = emis
       .reduce((sum, t) => sum + t.amount, 0);
-    const remainingBudget = budget - totalExpenses - totalEmis;
-    return { totalExpenses, totalEmis, remainingBudget };
-  }, [transactions, budget]);
+    
+    const balance = totalIncome - totalExpenses - totalEmis;
+    return { totalIncome, totalExpenses, totalEmis, balance };
+  }, [transactions, emis]);
+
+  const filteredTransactions = useMemo(() => {
+    if (activeFilter === 'all') return transactions;
+    return transactions.filter(t => t.type === activeFilter);
+  }, [transactions, activeFilter]);
+
 
   return (
     <div className="space-y-8">
@@ -77,26 +113,40 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
            <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />
+           <AddEmiDialog onAddEmi={handleAddEmi} />
            <AddTransactionDialog onAddTransaction={handleAddTransaction} />
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <SummaryCard icon={DollarSign} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={Landmark} title="Total EMIs" value={totalEmis} />
-        <SummaryCard icon={Receipt} title="Remaining Budget" value={remainingBudget} isCurrency={budget > 0} />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <SummaryCard icon={ArrowUp} title="Total Income" value={totalIncome} />
+        <SummaryCard icon={ArrowDown} title="Total Expenses" value={totalExpenses} />
+        <SummaryCard icon={Landmark} title="Total EMI" value={totalEmis} />
+        <SummaryCard icon={PiggyBank} title="Your Balance" value={balance} />
       </div>
 
-      <div className="grid gap-6">
-        <div className="lg:col-span-3">
-          <ExpenseChart data={transactions} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <h2 className="text-2xl font-bold tracking-tight mb-4">Recent Transactions</h2>
+          <div className="flex space-x-2 mb-4">
+            <button onClick={() => setActiveFilter('all')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>All</button>
+            <button onClick={() => setActiveFilter('income')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'income' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Income</button>
+            <button onClick={() => setActiveFilter('expense')} className={cn('px-3 py-1 rounded-full text-sm font-medium', activeFilter === 'expense' ? 'bg-primary text-primary-foreground' : 'bg-muted')}>Expenses</button>
+          </div>
+          <TransactionTable transactions={filteredTransactions} />
+        </div>
+        <div className="space-y-6">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Running EMIs</h2>
+              <EmiTable emis={emis} />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight mb-4">Expense Analysis</h2>
+              <ExpenseChart data={transactions} />
+            </div>
         </div>
       </div>
 
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Recent Transactions</h2>
-        <TransactionTable transactions={transactions} />
-      </div>
     </div>
   );
 }

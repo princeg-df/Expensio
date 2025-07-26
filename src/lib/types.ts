@@ -5,8 +5,16 @@ export type Transaction = {
   category: string;
   amount: number;
   date: Timestamp;
-  type: 'expense' | 'emi';
+  type: 'expense' | 'income';
 };
+
+export type Emi = {
+  id: string;
+  name: string;
+  amount: number;
+  monthsRemaining: number;
+  paymentDate: Timestamp;
+}
 
 export type Category = {
   value: string;

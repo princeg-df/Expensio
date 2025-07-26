@@ -30,7 +30,7 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
     await onSetBudget(newBudget);
     toast({
       title: 'Budget Updated',
-      description: `Your monthly budget has been set to $${newBudget}.`,
+      description: `Your monthly budget has been set to ₹${newBudget}.`,
     });
     setOpen(false);
   };
@@ -61,7 +61,7 @@ export function BudgetSetter({ currentBudget, onSetBudget }: BudgetSetterProps) 
               value={newBudget}
               onChange={(e) => setNewBudget(Number(e.target.value))}
               className="col-span-3"
-              placeholder="e.g., 2000"
+              placeholder="e.g., 50000"
             />
           </div>
         </div>

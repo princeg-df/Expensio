@@ -10,7 +10,7 @@ type SummaryCardProps = {
 
 export function SummaryCard({ icon: Icon, title, value, isCurrency = true }: SummaryCardProps) {
   const formattedValue = isCurrency
-    ? new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value)
+    ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value)
     : value.toLocaleString();
 
   return (

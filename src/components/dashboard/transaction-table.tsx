@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { Landmark, Receipt, Car, Home, UtensilsCrossed, Plane, ShoppingCart, Lightbulb, Ticket } from 'lucide-react';
+import { Landmark, Receipt, Car, Home, UtensilsCrossed, Plane, ShoppingCart, Lightbulb, Ticket, HandCoins, Briefcase } from 'lucide-react';
 import type { Transaction, Category } from '@/lib/types';
 
 type TransactionTableProps = {
@@ -16,6 +16,9 @@ const categoryIcons: { [key: string]: React.ComponentType<{ className?: string }
     'Shopping': ShoppingCart,
     'Utilities': Lightbulb,
     'Entertainment': Ticket,
+    'Salary': Briefcase,
+    'Freelance': HandCoins,
+    'Investment': Landmark,
     'Other': Receipt,
 };
 
@@ -52,7 +55,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={transaction.type === 'expense' ? 'secondary' : 'outline'}>
+                  <Badge variant={transaction.type === 'expense' ? 'secondary' : 'outline'} className={cn({'bg-green-200/50 text-green-700': transaction.type === 'income'})}>
                     {transaction.type}
                   </Badge>
                 </TableCell>
@@ -60,7 +63,7 @@ export function TransactionTable({ transactions }: TransactionTableProps) {
                   {new Date(transaction.date.seconds * 1000).toLocaleDateString()}
                 </TableCell>
                 <TableCell className="text-right">
-                  ${transaction.amount.toFixed(2)}
+                ₹{transaction.amount.toFixed(2)}
                 </TableCell>
               </TableRow>
             )})
