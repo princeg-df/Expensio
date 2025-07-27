@@ -102,13 +102,10 @@ export default function ReportsPage() {
   }, [user]);
 
   useEffect(() => {
-    if(authLoading) return;
-    if(user) {
-        fetchData();
-    } else {
-        setLoading(false);
+    if (user) {
+      fetchData();
     }
-  }, [user, authLoading, fetchData]);
+  }, [user, fetchData]);
 
 
   const { monthlyEvents, totalIncome, totalExpenses, netFlow } = useMemo(() => {
@@ -146,6 +143,7 @@ export default function ReportsPage() {
       const emiEndDate = addMonths(paymentDate, emi.monthsRemaining);
 
       while(isBefore(paymentDate, emiEndDate)) {
+        if (getYear(paymentDate) > year) break;
         if (isWithinInterval(paymentDate, interval)) {
             events.push({
               date: paymentDate,
@@ -158,7 +156,6 @@ export default function ReportsPage() {
             break; 
         }
         paymentDate = addMonths(paymentDate, 1);
-        if (getYear(paymentDate) > year) break;
       }
     });
     
@@ -174,12 +171,12 @@ export default function ReportsPage() {
         let paymentDate = autopay.nextPaymentDate.toDate();
 
         // Rewind to find a payment date that could be in or before the interval
-        while (paymentDate > interval.end) {
+        while (isAfter(paymentDate, interval.end)) {
           paymentDate = addMonths(paymentDate, -monthIncrement);
         }
 
         // Fast-forward to find payments within the interval
-        while (paymentDate < interval.start) {
+        while (isBefore(paymentDate, interval.start)) {
           paymentDate = addMonths(paymentDate, monthIncrement);
         }
         
