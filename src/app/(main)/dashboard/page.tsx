@@ -73,34 +73,37 @@ export default function DashboardPage() {
 
         emisSnapshot.forEach((doc) => {
         let emi = { id: doc.id, ...doc.data() } as Emi;
-        const nextPaymentDate = emi.nextPaymentDate.toDate();
+        
+        if (emi.nextPaymentDate) {
+          const nextPaymentDate = emi.nextPaymentDate.toDate();
 
-        if (nextPaymentDate < currentDate) {
-            let monthsPassed = 0;
-            let newNextPaymentDate = nextPaymentDate;
+          if (nextPaymentDate < currentDate) {
+              let monthsPassed = 0;
+              let newNextPaymentDate = nextPaymentDate;
 
-            while(newNextPaymentDate < currentDate) {
-                monthsPassed++;
-                newNextPaymentDate = addMonths(newNextPaymentDate, 1);
-            }
-            
-            const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
+              while(newNextPaymentDate < currentDate) {
+                  monthsPassed++;
+                  newNextPaymentDate = addMonths(newNextPaymentDate, 1);
+              }
+              
+              const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
 
-            if (newMonthsRemaining <= 0) {
-                batch.delete(doc.ref);
-                hasUpdates = true;
-            } else {
-                emi.monthsRemaining = newMonthsRemaining;
-                emi.nextPaymentDate = Timestamp.fromDate(newNextPaymentDate);
-                batch.update(doc.ref, { 
-                    monthsRemaining: newMonthsRemaining,
-                    nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
-                });
-                hasUpdates = true;
-                emisData.push(emi);
-            }
-        } else {
-            emisData.push(emi);
+              if (newMonthsRemaining <= 0) {
+                  batch.delete(doc.ref);
+                  hasUpdates = true;
+              } else {
+                  emi.monthsRemaining = newMonthsRemaining;
+                  emi.nextPaymentDate = Timestamp.fromDate(newNextPaymentDate);
+                  batch.update(doc.ref, { 
+                      monthsRemaining: newMonthsRemaining,
+                      nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
+                  });
+                  hasUpdates = true;
+                  emisData.push(emi);
+              }
+          } else {
+              emisData.push(emi);
+          }
         }
         });
         
@@ -418,3 +421,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
