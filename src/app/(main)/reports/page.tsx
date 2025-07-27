@@ -139,44 +139,49 @@ export default function ReportsPage() {
       }
     });
 
+    // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
-        if (!emi.startDate || emi.monthsRemaining <= 0) return;
-        
-        let paymentDate = emi.startDate.toDate();
-        const totalPayments = Math.ceil(emi.loanAmount / emi.amount);
+      if (!emi.startDate || !emi.loanAmount || !emi.amount) return;
+      const startDate = emi.startDate.toDate();
+      // Calculate total number of payments from loan amount and emi amount
+      const totalPayments = Math.ceil(emi.loanAmount / emi.amount);
 
-        for (let i = 0; i < totalPayments; i++) {
-            if (isAfter(paymentDate, interval.end)) break;
-
-            if (isWithinInterval(paymentDate, interval)) {
-                 events.push({
-                    date: paymentDate,
-                    description: emi.name,
-                    amount: emi.amount,
-                    type: 'fixed',
-                    category: 'EMI',
-                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-                });
-                break; 
-            }
-            paymentDate = addMonths(paymentDate, 1);
+      for (let i = 0; i < totalPayments; i++) {
+        const paymentDate = addMonths(startDate, i);
+        if (isAfter(paymentDate, interval.end)) break;
+        if (isWithinInterval(paymentDate, interval)) {
+          events.push({
+            date: paymentDate,
+            description: emi.name,
+            amount: emi.amount,
+            type: 'fixed',
+            category: 'EMI',
+            icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
+          });
+          break; // Found payment for this month, move to next EMI
         }
+      }
     });
     
+    // Calculate recurring Autopay payments for the selected month
     autopays.forEach(autopay => {
         if (!autopay.nextPaymentDate) return;
         
-        let paymentDate = autopay.nextPaymentDate.toDate();
         let monthIncrement = 1;
         if (autopay.frequency === 'Quarterly') monthIncrement = 3;
         else if (autopay.frequency === 'Half-Yearly') monthIncrement = 6;
         else if (autopay.frequency === 'Yearly') monthIncrement = 12;
 
-        while(isBefore(paymentDate, interval.start)) {
-             paymentDate = addMonths(paymentDate, monthIncrement);
+        let paymentDate = autopay.nextPaymentDate.toDate();
+
+        // Rewind to find the first potential payment date before or in the interval
+        while (isAfter(paymentDate, interval.start)) {
+          paymentDate = addMonths(paymentDate, -monthIncrement);
         }
 
-        if (isWithinInterval(paymentDate, interval)) {
+        // Fast-forward to find payments within the interval
+        while (isBefore(paymentDate, interval.end)) {
+          if (isWithinInterval(paymentDate, interval)) {
             events.push({
                 date: paymentDate,
                 description: autopay.name,
@@ -185,6 +190,9 @@ export default function ReportsPage() {
                 category: autopay.category,
                 icon: categoryIcons[autopay.category] || Receipt,
             });
+            break; // Assuming one payment per period, so break after finding one
+          }
+          paymentDate = addMonths(paymentDate, monthIncrement);
         }
     });
 
