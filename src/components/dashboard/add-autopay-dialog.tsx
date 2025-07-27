@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +44,7 @@ const formSchema = z.object({
     required_error: "A payment day is required.",
   }),
   category: z.enum(['Subscription', 'Investment', 'Insurance', 'Other']),
-  frequency: z.enum(['Monthly', 'Quarterly', 'Yearly']),
+  frequency: z.enum(['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly']),
 });
 
 type AddAutopayDialogProps = {
@@ -90,7 +91,7 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {trigger}
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{existingAutopay ? 'Edit' : 'Add'} Autopay Expense</DialogTitle>
@@ -164,6 +165,7 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
                     <SelectContent>
                       <SelectItem value="Monthly">Monthly</SelectItem>
                       <SelectItem value="Quarterly">Quarterly</SelectItem>
+                      <SelectItem value="Half-Yearly">Half-Yearly</SelectItem>
                       <SelectItem value="Yearly">Yearly</SelectItem>
                     </SelectContent>
                   </Select>
@@ -214,5 +216,3 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     </Dialog>
   );
 }
-
-    

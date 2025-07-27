@@ -22,7 +22,7 @@ export type Autopay = {
   amount: number;
   paymentDate: Timestamp;
   category: 'Subscription' | 'Investment' | 'Insurance' | 'Other';
-  frequency: 'Monthly' | 'Quarterly' | 'Yearly';
+  frequency: 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly';
 }
 
 export type Category = {

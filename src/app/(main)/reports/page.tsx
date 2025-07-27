@@ -165,7 +165,15 @@ export default function ReportsPage() {
     autopays.forEach(autopay => {
       const initialPaymentDate = autopay.paymentDate.toDate();
       let paymentDate = initialPaymentDate;
-      
+      let monthIncrement = 1;
+      if (autopay.frequency === 'Quarterly') {
+        monthIncrement = 3;
+      } else if (autopay.frequency === 'Half-Yearly') {
+        monthIncrement = 6;
+      } else if (autopay.frequency === 'Yearly') {
+        monthIncrement = 12;
+      }
+
       while(getYear(paymentDate) < year || (getYear(paymentDate) === year && getMonth(paymentDate) <= month)) {
           if (getYear(paymentDate) === year && getMonth(paymentDate) === month) {
               events.push({
@@ -180,13 +188,7 @@ export default function ReportsPage() {
           }
           
           let nextPaymentDate: Date;
-          if (autopay.frequency === 'Monthly') {
-              nextPaymentDate = new Date(paymentDate.setMonth(paymentDate.getMonth() + 1));
-          } else if (autopay.frequency === 'Quarterly') {
-              nextPaymentDate = new Date(paymentDate.setMonth(paymentDate.getMonth() + 3));
-          } else { // Yearly
-              nextPaymentDate = new Date(paymentDate.setFullYear(paymentDate.getFullYear() + 1));
-          }
+          nextPaymentDate = new Date(paymentDate.setMonth(paymentDate.getMonth() + monthIncrement));
           paymentDate = nextPaymentDate;
       }
     });

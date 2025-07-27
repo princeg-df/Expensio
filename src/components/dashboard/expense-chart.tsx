@@ -40,10 +40,6 @@ export function ExpenseChart({ transactions, emis, autopays }: ExpenseChartProps
 
         // Add fixed expenses from EMIs and Autopays
         Object.keys(data).forEach(key => {
-            const [monthName, yearShort] = key.split(' ');
-            const year = parseInt(`20${yearShort.slice(1)}`);
-            const month = new Date(Date.parse(monthName +" 1, " + year)).getMonth();
-
             emis.forEach(emi => {
                 data[key] += emi.amount;
             });
@@ -53,15 +49,11 @@ export function ExpenseChart({ transactions, emis, autopays }: ExpenseChartProps
                 if (autopay.frequency === 'Monthly') {
                     monthlyAmount = autopay.amount;
                 } else if (autopay.frequency === 'Quarterly') {
-                    const paymentMonth = autopay.paymentDate.toDate().getMonth();
-                    if ((month - paymentMonth + 12) % 3 === 0) {
-                        monthlyAmount = autopay.amount;
-                    }
+                    monthlyAmount = autopay.amount / 3;
+                } else if (autopay.frequency === 'Half-Yearly') {
+                    monthlyAmount = autopay.amount / 6;
                 } else if (autopay.frequency === 'Yearly') {
-                    const paymentMonth = autopay.paymentDate.toDate().getMonth();
-                    if (month === paymentMonth) {
-                        monthlyAmount = autopay.amount;
-                    }
+                    monthlyAmount = autopay.amount / 12;
                 }
                 data[key] += monthlyAmount;
             });
