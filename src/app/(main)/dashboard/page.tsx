@@ -233,7 +233,19 @@ export default function DashboardPage() {
 
     const emisAmount = emis.reduce((sum, t) => sum + t.amount, 0);
     
-    const autopaysAmount = autopays.reduce((sum, t) => sum + t.amount, 0);
+    const autopaysAmount = autopays.reduce((sum, autopay) => {
+        let monthlyAmount = 0;
+        if (autopay.frequency === 'Monthly') {
+            monthlyAmount = autopay.amount;
+        } else if (autopay.frequency === 'Quarterly') {
+            monthlyAmount = autopay.amount / 3;
+        } else if (autopay.frequency === 'Half-Yearly') {
+            monthlyAmount = autopay.amount / 6;
+        } else if (autopay.frequency === 'Yearly') {
+            monthlyAmount = autopay.amount / 12;
+        }
+        return sum + monthlyAmount;
+    }, 0);
     
     const fixed = emisAmount + autopaysAmount;
     
