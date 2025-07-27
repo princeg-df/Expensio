@@ -6,7 +6,7 @@ import { collection, query, onSnapshot, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, isSameMonth, isSameYear, parse, addMonths, isBefore, isEqual } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, parse, addMonths, isBefore, isEqual, isAfter, format } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,7 +58,7 @@ export default function ReportsPage() {
       ...transactions.filter(t => t.date).map(t => t.date.toDate()),
       ...emis.filter(e => e.startDate).map(e => e.startDate.toDate()),
       ...autopays.filter(a => a.nextPaymentDate).map(a => a.nextPaymentDate.toDate())
-    ].filter(Boolean); // Filter out any null/undefined dates
+    ].filter(Boolean);
 
     if (allDates.length === 0) return [new Date().getFullYear().toString()];
     
@@ -114,6 +114,9 @@ export default function ReportsPage() {
   const { monthlyEvents, totalIncome, totalExpenses, netFlow } = useMemo(() => {
     const month = parseInt(selectedMonth);
     const year = parseInt(selectedYear);
+    if (isNaN(month) || isNaN(year)) {
+      return { monthlyEvents: [], totalIncome: 0, totalExpenses: 0, netFlow: 0 };
+    }
     const selectedDate = new Date(year, month);
     const interval = { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) };
 
@@ -136,16 +139,16 @@ export default function ReportsPage() {
       }
     });
 
-    // Check for EMI payments in the selected month
     emis.forEach(emi => {
-       if (emi.startDate && emi.nextPaymentDate && emi.monthsRemaining > 0) {
-         const startDate = emi.startDate.toDate();
-         const endDate = addMonths(startDate, (emi.loanAmount / emi.amount)); // A rough end date
-         if (isBefore(startDate, interval.end) && isAfter(endDate, interval.start)) {
-            // This is a simplification; a more accurate check would iterate months.
-            // For this report, we assume if the loan is active during the month, a payment is made.
-            let paymentDate = emi.nextPaymentDate.toDate();
-            if (isSameMonth(paymentDate, selectedDate) && isSameYear(paymentDate, selectedDate)) {
+        if (!emi.startDate || emi.monthsRemaining <= 0) return;
+        
+        let paymentDate = emi.startDate.toDate();
+        const totalPayments = Math.ceil(emi.loanAmount / emi.amount);
+
+        for (let i = 0; i < totalPayments; i++) {
+            if (isAfter(paymentDate, interval.end)) break;
+
+            if (isWithinInterval(paymentDate, interval)) {
                  events.push({
                     date: paymentDate,
                     description: emi.name,
@@ -154,74 +157,37 @@ export default function ReportsPage() {
                     category: 'EMI',
                     icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-            } else {
-                 // Check if a payment *would* have occurred this month based on start date
-                 let tempDate = startDate;
-                 while(isBefore(tempDate, interval.end)) {
-                     if(isSameMonth(tempDate, selectedDate) && isSameYear(tempDate, selectedDate)) {
-                        events.push({
-                            date: new Date(year, month, startDate.getDate()),
-                            description: emi.name,
-                            amount: emi.amount,
-                            type: 'fixed',
-                            category: 'EMI',
-                            icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-                        });
-                        break;
-                     }
-                     tempDate = addMonths(tempDate, 1);
-                 }
+                break; 
             }
-         }
-       }
+            paymentDate = addMonths(paymentDate, 1);
+        }
     });
-
-    // Check for Autopay payments in the selected month
+    
     autopays.forEach(autopay => {
-      if (autopay.nextPaymentDate) {
-        const initialPaymentDate = autopay.nextPaymentDate.toDate();
+        if (!autopay.nextPaymentDate) return;
+        
+        let paymentDate = autopay.nextPaymentDate.toDate();
         let monthIncrement = 1;
         if (autopay.frequency === 'Quarterly') monthIncrement = 3;
         else if (autopay.frequency === 'Half-Yearly') monthIncrement = 6;
         else if (autopay.frequency === 'Yearly') monthIncrement = 12;
 
-        let paymentDate = initialPaymentDate;
-        // Go back in time to check if a payment aligns with the selected month
-        while(isAfter(paymentDate, interval.start) || isEqual(paymentDate, interval.start)) {
-             if (isSameMonth(paymentDate, selectedDate) && isSameYear(paymentDate, selectedDate)) {
-                 events.push({
-                    date: paymentDate,
-                    description: autopay.name,
-                    amount: autopay.amount,
-                    type: 'fixed',
-                    category: autopay.category,
-                    icon: categoryIcons[autopay.category] || Receipt,
-                });
-                break;
-            }
-            // this logic is flawed for going back. simplified:
-             if (initialPaymentDate.getTime() > interval.end.getTime()) continue; // Skip if first payment is after selected month
-             
-             let tempDate = initialPaymentDate;
-             while(isBefore(tempDate, interval.end) || isEqual(tempDate, interval.end)) {
-                 if(isSameMonth(tempDate, selectedDate) && isSameYear(tempDate, selectedDate)) {
-                     events.push({
-                        date: tempDate,
-                        description: autopay.name,
-                        amount: autopay.amount,
-                        type: 'fixed',
-                        category: autopay.category,
-                        icon: categoryIcons[autopay.category] || Receipt,
-                    });
-                    break;
-                 }
-                 if(autopay.frequency === 'Monthly') tempDate = addMonths(tempDate, 1)
-                 else break; // For simplicity, only monthly recurring autopay is shown in reports correctly.
-             }
+        while(isBefore(paymentDate, interval.start)) {
+             paymentDate = addMonths(paymentDate, monthIncrement);
         }
-        
-      }
+
+        if (isWithinInterval(paymentDate, interval)) {
+            events.push({
+                date: paymentDate,
+                description: autopay.name,
+                amount: autopay.amount,
+                type: 'fixed',
+                category: autopay.category,
+                icon: categoryIcons[autopay.category] || Receipt,
+            });
+        }
     });
+
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -345,5 +311,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
