@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -68,8 +69,9 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
     if (open && existingEmi) {
       form.reset({
         ...existingEmi,
-        startDate: existingEmi.startDate.toDate(),
-        nextPaymentDate: existingEmi.nextPaymentDate.toDate(),
+        loanAmount: existingEmi.loanAmount || 0,
+        startDate: existingEmi.startDate ? existingEmi.startDate.toDate() : new Date(),
+        nextPaymentDate: existingEmi.nextPaymentDate ? existingEmi.nextPaymentDate.toDate() : new Date(),
       });
     } else if (!open) {
         form.reset({
