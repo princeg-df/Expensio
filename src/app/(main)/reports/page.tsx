@@ -55,9 +55,9 @@ export default function ReportsPage() {
   
   const years = useMemo(() => {
     const allDates = [
-      ...transactions.map(t => t.date.toDate()),
-      ...emis.map(e => e.nextPaymentDate.toDate()),
-      ...autopays.map(a => a.nextPaymentDate.toDate())
+      ...transactions.filter(t => t.date).map(t => t.date.toDate()),
+      ...emis.filter(e => e.nextPaymentDate).map(e => e.nextPaymentDate.toDate()),
+      ...autopays.filter(a => a.nextPaymentDate).map(a => a.nextPaymentDate.toDate())
     ];
     if (allDates.length === 0) return [new Date().getFullYear().toString()];
     
@@ -121,75 +121,81 @@ export default function ReportsPage() {
 
     // Filter transactions
     transactions.forEach(t => {
-      const tDate = t.date.toDate();
-      if (isWithinInterval(tDate, interval)) {
-        events.push({
-          date: tDate,
-          description: t.category,
-          amount: t.amount,
-          type: t.type,
-          category: t.category,
-          icon: categoryIcons[t.category] || Receipt,
-        });
+      if (t.date) {
+        const tDate = t.date.toDate();
+        if (isWithinInterval(tDate, interval)) {
+          events.push({
+            date: tDate,
+            description: t.category,
+            amount: t.amount,
+            type: t.type,
+            category: t.category,
+            icon: categoryIcons[t.category] || Receipt,
+          });
+        }
       }
     });
 
     // Check for EMI payments
     emis.forEach(emi => {
-       const emiPaymentDate = emi.nextPaymentDate.toDate();
-       if(getYear(emiPaymentDate) < year || (getYear(emiPaymentDate) === year && getMonth(emiPaymentDate) <= month)) {
-            let paymentMonth = getMonth(emiPaymentDate);
-            let paymentYear = getYear(emiPaymentDate);
-            
-            while(paymentYear < year || (paymentYear === year && paymentMonth <= month)) {
-                if(paymentYear === year && paymentMonth === month) {
-                    events.push({
-                      date: new Date(year, month, emiPaymentDate.getDate()),
-                      description: emi.name,
-                      amount: emi.amount,
-                      type: 'fixed',
-                      category: 'EMI',
-                      icon: categoryIcons['Car Loan']
-                    });
-                }
-                paymentMonth++;
-                if(paymentMonth > 11) {
-                    paymentMonth = 0;
-                    paymentYear++;
-                }
-            }
+       if (emi.nextPaymentDate) {
+         const emiPaymentDate = emi.nextPaymentDate.toDate();
+         if(getYear(emiPaymentDate) < year || (getYear(emiPaymentDate) === year && getMonth(emiPaymentDate) <= month)) {
+              let paymentMonth = getMonth(emiPaymentDate);
+              let paymentYear = getYear(emiPaymentDate);
+              
+              while(paymentYear < year || (paymentYear === year && paymentMonth <= month)) {
+                  if(paymentYear === year && paymentMonth === month) {
+                      events.push({
+                        date: new Date(year, month, emiPaymentDate.getDate()),
+                        description: emi.name,
+                        amount: emi.amount,
+                        type: 'fixed',
+                        category: 'EMI',
+                        icon: categoryIcons['Car Loan']
+                      });
+                  }
+                  paymentMonth++;
+                  if(paymentMonth > 11) {
+                      paymentMonth = 0;
+                      paymentYear++;
+                  }
+              }
+         }
        }
     });
 
     // Check for Autopay payments
     autopays.forEach(autopay => {
-      const initialPaymentDate = autopay.nextPaymentDate.toDate();
-      let paymentDate = initialPaymentDate;
-      let monthIncrement = 1;
-      if (autopay.frequency === 'Quarterly') {
-        monthIncrement = 3;
-      } else if (autopay.frequency === 'Half-Yearly') {
-        monthIncrement = 6;
-      } else if (autopay.frequency === 'Yearly') {
-        monthIncrement = 12;
-      }
+      if (autopay.nextPaymentDate) {
+        const initialPaymentDate = autopay.nextPaymentDate.toDate();
+        let paymentDate = initialPaymentDate;
+        let monthIncrement = 1;
+        if (autopay.frequency === 'Quarterly') {
+          monthIncrement = 3;
+        } else if (autopay.frequency === 'Half-Yearly') {
+          monthIncrement = 6;
+        } else if (autopay.frequency === 'Yearly') {
+          monthIncrement = 12;
+        }
 
-      while(getYear(paymentDate) < year || (getYear(paymentDate) === year && getMonth(paymentDate) <= month)) {
-          if (getYear(paymentDate) === year && getMonth(paymentDate) === month) {
-              events.push({
-                  date: paymentDate,
-                  description: autopay.name,
-                  amount: autopay.amount,
-                  type: 'fixed',
-                  category: autopay.category,
-                  icon: categoryIcons[autopay.category] || Receipt,
-              });
-              break; 
-          }
-          
-          let nextPaymentDate: Date;
-          nextPaymentDate = new Date(paymentDate.setMonth(paymentDate.getMonth() + monthIncrement));
-          paymentDate = nextPaymentDate;
+        while(getYear(paymentDate) < year || (getYear(paymentDate) === year && getMonth(paymentDate) <= month)) {
+            if (getYear(paymentDate) === year && getMonth(paymentDate) === month) {
+                events.push({
+                    date: paymentDate,
+                    description: autopay.name,
+                    amount: autopay.amount,
+                    type: 'fixed',
+                    category: autopay.category,
+                    icon: categoryIcons[autopay.category] || Receipt,
+                });
+                break; 
+            }
+            
+            let nextPaymentDate: Date;
+            nextPaymentDate = new Date(paymentDate.setMonth(paymentDate.getMonth() + monthIncrement));
+            paymentDate = nextPaymentDate;
+        }
       }
     });
 
