@@ -11,7 +11,12 @@ type EmiTableProps = {
 };
 
 export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
-  const sortedEmis = [...emis].sort((a, b) => a.nextPaymentDate.seconds - b.nextPaymentDate.seconds);
+  const sortedEmis = [...emis].sort((a, b) => {
+    if (!a.nextPaymentDate && !b.nextPaymentDate) return 0;
+    if (!a.nextPaymentDate) return 1;
+    if (!b.nextPaymentDate) return -1;
+    return a.nextPaymentDate.seconds - b.nextPaymentDate.seconds;
+  });
   
   if (sortedEmis.length === 0) {
     return (
@@ -30,7 +35,7 @@ export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
             <TableRow key={emi.id} className="border-b-0">
               <TableCell className="font-medium p-2">
                 {emi.name}
-                <p className="text-xs text-muted-foreground">{emi.monthsRemaining} months left</p>
+                <p className="text-xs text-muted-foreground">{emi.monthsRemaining > 0 ? `${emi.monthsRemaining} months left` : 'Completed'}</p>
               </TableCell>
               <TableCell className="text-right p-2 align-top">
                 &#8377;{emi.amount.toFixed(2)}

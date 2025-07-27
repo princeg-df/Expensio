@@ -74,14 +74,14 @@ export default function DashboardPage() {
         emisSnapshot.forEach((doc) => {
           let emi = { id: doc.id, ...doc.data() } as Emi;
           
-          if (emi.nextPaymentDate) {
+          if (emi.nextPaymentDate && emi.monthsRemaining > 0) {
             const nextPaymentDate = emi.nextPaymentDate.toDate();
 
-            if (nextPaymentDate < currentDate && emi.monthsRemaining > 0) {
+            if (nextPaymentDate < currentDate) {
                 let monthsPassed = 0;
                 let newNextPaymentDate = nextPaymentDate;
 
-                while(newNextPaymentDate < currentDate) {
+                while(newNextPaymentDate < currentDate && emi.monthsRemaining - monthsPassed > 0) {
                     monthsPassed++;
                     newNextPaymentDate = addMonths(newNextPaymentDate, 1);
                 }
@@ -97,9 +97,6 @@ export default function DashboardPage() {
                     });
                     hasUpdates = true;
                 } else {
-                    // If months remaining becomes 0 or less, we can mark it as complete
-                    // but we will not delete it to preserve history.
-                    // For now, we just update the monthsRemaining to 0.
                     emi.monthsRemaining = 0;
                     batch.update(doc.ref, { monthsRemaining: 0 });
                     hasUpdates = true;
@@ -238,7 +235,7 @@ export default function DashboardPage() {
       .filter((t) => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const emisAmount = emis.reduce((sum, t) => sum + t.amount, 0);
+    const emisAmount = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
         let monthlyAmount = 0;
