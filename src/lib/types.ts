@@ -12,15 +12,17 @@ export type Emi = {
   id: string;
   name: string;
   amount: number;
+  loanAmount: number;
+  startDate: Timestamp;
   monthsRemaining: number;
-  paymentDate: Timestamp;
+  nextPaymentDate: Timestamp;
 }
 
 export type Autopay = {
   id: string;
   name: string;
   amount: number;
-  paymentDate: Timestamp;
+  nextPaymentDate: Timestamp;
   category: 'Subscription' | 'Investment' | 'Insurance' | 'Other';
   frequency: 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly';
 }

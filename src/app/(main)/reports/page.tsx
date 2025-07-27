@@ -56,8 +56,8 @@ export default function ReportsPage() {
   const years = useMemo(() => {
     const allDates = [
       ...transactions.map(t => t.date.toDate()),
-      ...emis.map(e => e.paymentDate.toDate()),
-      ...autopays.map(a => a.paymentDate.toDate())
+      ...emis.map(e => e.nextPaymentDate.toDate()),
+      ...autopays.map(a => a.nextPaymentDate.toDate())
     ];
     if (allDates.length === 0) return [new Date().getFullYear().toString()];
     
@@ -136,7 +136,7 @@ export default function ReportsPage() {
 
     // Check for EMI payments
     emis.forEach(emi => {
-       const emiPaymentDate = emi.paymentDate.toDate();
+       const emiPaymentDate = emi.nextPaymentDate.toDate();
        if(getYear(emiPaymentDate) < year || (getYear(emiPaymentDate) === year && getMonth(emiPaymentDate) <= month)) {
             let paymentMonth = getMonth(emiPaymentDate);
             let paymentYear = getYear(emiPaymentDate);
@@ -163,7 +163,7 @@ export default function ReportsPage() {
 
     // Check for Autopay payments
     autopays.forEach(autopay => {
-      const initialPaymentDate = autopay.paymentDate.toDate();
+      const initialPaymentDate = autopay.nextPaymentDate.toDate();
       let paymentDate = initialPaymentDate;
       let monthIncrement = 1;
       if (autopay.frequency === 'Quarterly') {

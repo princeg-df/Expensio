@@ -109,11 +109,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
 
         const emisQuery = query(collection(db, `users/${user.uid}/emis`));
         const emisSnapshot = await getDocs(emisQuery);
-        const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as any).toDate() })) as Emi[];
+        const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, startDate: (doc.data().startDate as any).toDate(), nextPaymentDate: (doc.data().nextPaymentDate as any).toDate() })) as Emi[];
         
         const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
         const autopaysSnapshot = await getDocs(autopaysQuery);
-        const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as any).toDate() })) as Autopay[];
+        const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, nextPaymentDate: (doc.data().nextPaymentDate as any).toDate() })) as Autopay[];
 
         const userDocRef = doc(db, `users/${user.uid}`);
         const userDocSnap = await getDoc(userDocRef);
@@ -159,11 +159,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
 
       const emisQuery = query(collection(db, `users/${user.uid}/emis`));
       const emisSnapshot = await getDocs(emisQuery);
-      const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+      const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, startDate: (doc.data().startDate as Timestamp).toDate(), nextPaymentDate: (doc.data().nextPaymentDate as Timestamp).toDate() }));
 
       const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
       const autopaysSnapshot = await getDocs(autopaysQuery);
-      const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, paymentDate: (doc.data().paymentDate as Timestamp).toDate() }));
+      const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, nextPaymentDate: (doc.data().nextPaymentDate as Timestamp).toDate() }));
       
       const userDocRef = doc(db, `users/${user.uid}`);
       const userDocSnap = await getDoc(userDocRef);
@@ -193,8 +193,8 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
       if(emis.length > 0) {
         autoTable(docPdf, {
             startY: lastTableY + 15,
-            head: [['Name', 'Amount', 'Months Remaining', 'Next Payment']],
-            body: emis.map(e => [ e.name, e.amount.toFixed(2), e.monthsRemaining, e.paymentDate.toLocaleDateString() ]),
+            head: [['Name', 'Loan Amount', 'EMI Amount', 'Months Remaining', 'Start Date', 'Next Payment']],
+            body: emis.map(e => [ e.name, e.loanAmount.toFixed(2), e.amount.toFixed(2), e.monthsRemaining, e.startDate.toLocaleDateString(), e.nextPaymentDate.toLocaleDateString() ]),
             headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Running EMIs', 14, lastTableY + 10); }
         });
@@ -205,7 +205,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         autoTable(docPdf, {
             startY: lastTableY + 15,
             head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
-            body: autopays.map(a => [ a.name, a.category, a.frequency, a.amount.toFixed(2), a.paymentDate.toLocaleDateString() ]),
+            body: autopays.map(a => [ a.name, a.category, a.frequency, a.amount.toFixed(2), a.nextPaymentDate.toLocaleDateString() ]),
             headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Autopay', 14, lastTableY + 10); }
         });
@@ -262,7 +262,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         if (data.emis && Array.isArray(data.emis)) {
           data.emis.forEach((e: any) => {
             const docRef = doc(collection(db, `users/${user.uid}/emis`));
-            const emiData = { ...e, paymentDate: Timestamp.fromDate(new Date(e.paymentDate)) };
+            const emiData = { ...e, startDate: Timestamp.fromDate(new Date(e.startDate)), nextPaymentDate: Timestamp.fromDate(new Date(e.nextPaymentDate)) };
             delete emiData.id;
             batch.set(docRef, emiData);
           });
@@ -270,7 +270,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         if (data.autopays && Array.isArray(data.autopays)) {
           data.autopays.forEach((a: any) => {
             const docRef = doc(collection(db, `users/${user.uid}/autopays`));
-            const autopayData = { ...a, paymentDate: Timestamp.fromDate(new Date(a.paymentDate)) };
+            const autopayData = { ...a, nextPaymentDate: Timestamp.fromDate(new Date(a.nextPaymentDate)) };
             delete autopayData.id;
             batch.set(docRef, autopayData);
           });
@@ -382,5 +382,3 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
-
-    

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,8 +33,12 @@ import type { Emi } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(1, 'Please enter a name for the EMI.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
+  loanAmount: z.coerce.number().min(0, 'Loan amount cannot be negative.'),
+  startDate: z.date({
+    required_error: "An EMI start date is required.",
+  }),
   monthsRemaining: z.coerce.number().min(1, 'Months remaining must be at least 1.'),
-  paymentDate: z.date({
+  nextPaymentDate: z.date({
     required_error: "A payment day is required.",
   }),
 });
@@ -53,8 +57,10 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
     defaultValues: {
       name: '',
       amount: 0,
+      loanAmount: 0,
+      startDate: new Date(),
       monthsRemaining: 1,
-      paymentDate: new Date(),
+      nextPaymentDate: new Date(),
     },
   });
 
@@ -62,14 +68,17 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
     if (open && existingEmi) {
       form.reset({
         ...existingEmi,
-        paymentDate: existingEmi.paymentDate.toDate(),
+        startDate: existingEmi.startDate.toDate(),
+        nextPaymentDate: existingEmi.nextPaymentDate.toDate(),
       });
     } else if (!open) {
         form.reset({
             name: '',
             amount: 0,
+            loanAmount: 0,
+            startDate: new Date(),
             monthsRemaining: 1,
-            paymentDate: new Date(),
+            nextPaymentDate: new Date(),
         });
     }
   }, [existingEmi, open, form]);
@@ -105,10 +114,23 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
             />
              <FormField
               control={form.control}
+              name="loanAmount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Total Loan Amount</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" placeholder="e.g., 500000" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
               name="amount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Monthly Amount</FormLabel>
+                  <FormLabel>Monthly EMI Amount</FormLabel>
                   <FormControl>
                     <Input type="number" step="0.01" placeholder="0.00" {...field} />
                   </FormControl>
@@ -129,9 +151,43 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>EMI Start Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                       <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
-              name="paymentDate"
+              name="nextPaymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
                   <FormLabel>Next Payment Day</FormLabel>
@@ -172,5 +228,3 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
     </Dialog>
   );
 }
-
-    

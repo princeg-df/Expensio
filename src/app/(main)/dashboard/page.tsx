@@ -73,15 +73,15 @@ export default function DashboardPage() {
 
         emisSnapshot.forEach((doc) => {
         let emi = { id: doc.id, ...doc.data() } as Emi;
-        const paymentDate = emi.paymentDate.toDate();
+        const nextPaymentDate = emi.nextPaymentDate.toDate();
 
-        if (paymentDate < currentDate) {
+        if (nextPaymentDate < currentDate) {
             let monthsPassed = 0;
-            let nextPaymentDate = paymentDate;
+            let newNextPaymentDate = nextPaymentDate;
 
-            while(nextPaymentDate < currentDate) {
+            while(newNextPaymentDate < currentDate) {
                 monthsPassed++;
-                nextPaymentDate = addMonths(nextPaymentDate, 1);
+                newNextPaymentDate = addMonths(newNextPaymentDate, 1);
             }
             
             const newMonthsRemaining = emi.monthsRemaining - monthsPassed;
@@ -91,10 +91,10 @@ export default function DashboardPage() {
                 hasUpdates = true;
             } else {
                 emi.monthsRemaining = newMonthsRemaining;
-                emi.paymentDate = Timestamp.fromDate(nextPaymentDate);
+                emi.nextPaymentDate = Timestamp.fromDate(newNextPaymentDate);
                 batch.update(doc.ref, { 
                     monthsRemaining: newMonthsRemaining,
-                    paymentDate: Timestamp.fromDate(nextPaymentDate)
+                    nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
                 });
                 hasUpdates = true;
                 emisData.push(emi);
@@ -178,12 +178,14 @@ export default function DashboardPage() {
     setIsAddTransactionOpen(false);
   };
 
-  const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
+  const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
     if (!user) return;
      const emiData = {
       ...data,
-      paymentDate: Timestamp.fromDate(data.paymentDate),
+      startDate: Timestamp.fromDate(data.startDate),
+      nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate),
       amount: Number(data.amount),
+      loanAmount: Number(data.loanAmount),
       monthsRemaining: Number(data.monthsRemaining),
     };
     if (id) {
@@ -195,11 +197,11 @@ export default function DashboardPage() {
     setIsAddEmiOpen(false);
   };
   
-  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
+  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'nextPaymentDate'> & { nextPaymentDate: Date }, id?: string) => {
     if (!user) return;
     const autopayData = {
       ...data,
-      paymentDate: Timestamp.fromDate(data.paymentDate),
+      nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate),
       amount: Number(data.amount),
     };
     if (id) {

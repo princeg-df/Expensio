@@ -12,7 +12,7 @@ type AutopayTableProps = {
 };
 
 export function AutopayTable({ autopays, onEdit, onDelete }: AutopayTableProps) {
-  const sortedAutopays = [...autopays].sort((a, b) => a.paymentDate.seconds - b.paymentDate.seconds);
+  const sortedAutopays = [...autopays].sort((a, b) => a.nextPaymentDate.seconds - b.nextPaymentDate.seconds);
 
   if (sortedAutopays.length === 0) {
     return (

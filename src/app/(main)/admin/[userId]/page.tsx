@@ -115,8 +115,15 @@ export default function UserDetailPage() {
     fetchData();
   };
 
-  const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
-     const emiData = { ...data, paymentDate: Timestamp.fromDate(data.paymentDate), amount: Number(data.amount), monthsRemaining: Number(data.monthsRemaining) };
+  const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
+     const emiData = { 
+        ...data, 
+        startDate: Timestamp.fromDate(data.startDate),
+        nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate), 
+        amount: Number(data.amount), 
+        loanAmount: Number(data.loanAmount),
+        monthsRemaining: Number(data.monthsRemaining) 
+    };
     const path = `users/${userId}/emis`;
     if (id) {
       await updateDoc(doc(db, path, id), emiData);
@@ -128,8 +135,8 @@ export default function UserDetailPage() {
     fetchData();
   };
   
-  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'paymentDate'> & { paymentDate: Date }, id?: string) => {
-    const autopayData = { ...data, paymentDate: Timestamp.fromDate(data.paymentDate), amount: Number(data.amount) };
+  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'nextPaymentDate'> & { nextPaymentDate: Date }, id?: string) => {
+    const autopayData = { ...data, nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate), amount: Number(data.amount) };
     const path = `users/${userId}/autopays`;
     if (id) {
       await updateDoc(doc(db, path, id), autopayData);

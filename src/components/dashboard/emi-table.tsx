@@ -11,7 +11,7 @@ type EmiTableProps = {
 };
 
 export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
-  const sortedEmis = [...emis].sort((a, b) => a.paymentDate.seconds - b.paymentDate.seconds);
+  const sortedEmis = [...emis].sort((a, b) => a.nextPaymentDate.seconds - b.nextPaymentDate.seconds);
   
   if (sortedEmis.length === 0) {
     return (

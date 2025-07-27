@@ -40,7 +40,7 @@ import type { Autopay } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(1, 'Please enter a name for the autopay.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
-  paymentDate: z.date({
+  nextPaymentDate: z.date({
     required_error: "A payment day is required.",
   }),
   category: z.enum(['Subscription', 'Investment', 'Insurance', 'Other']),
@@ -62,7 +62,7 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     defaultValues: {
       name: '',
       amount: 0,
-      paymentDate: new Date(),
+      nextPaymentDate: new Date(),
       category: 'Subscription',
       frequency: 'Monthly',
     },
@@ -72,13 +72,13 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     if (open && existingAutopay) {
       form.reset({
         ...existingAutopay,
-        paymentDate: existingAutopay.paymentDate.toDate(),
+        nextPaymentDate: existingAutopay.nextPaymentDate.toDate(),
       });
     } else if (!open) {
         form.reset({
             name: '',
             amount: 0,
-            paymentDate: new Date(),
+            nextPaymentDate: new Date(),
             category: 'Subscription',
             frequency: 'Monthly',
         });
@@ -175,10 +175,10 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
             />
             <FormField
               control={form.control}
-              name="paymentDate"
+              name="nextPaymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Next Payment Day</FormLabel>
+                  <FormLabel>{existingAutopay ? 'Next Payment Day' : 'First Payment Date'}</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>

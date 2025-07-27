@@ -22,17 +22,19 @@ const EmiSchema = z.object({
   id: z.string(),
   name: z.string(),
   amount: z.number(),
+  loanAmount: z.number(),
+  startDate: z.string(),
   monthsRemaining: z.number(),
-  paymentDate: z.string(),
+  nextPaymentDate: z.string(),
 });
 
 const AutopaySchema = z.object({
   id: z.string(),
   name: z.string(),
   amount: z.number(),
-  paymentDate: z.string(),
+  nextPaymentDate: z.string(),
   category: z.enum(['Subscription', 'Investment', 'Insurance', 'Other']),
-  frequency: z.enum(['Monthly', 'Quarterly', 'Yearly']),
+  frequency: z.enum(['Monthly', 'Quarterly', 'Half-Yearly', 'Yearly']),
 });
 
 
