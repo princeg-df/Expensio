@@ -72,7 +72,7 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     if (open && existingAutopay) {
       form.reset({
         ...existingAutopay,
-        nextPaymentDate: existingAutopay.nextPaymentDate.toDate(),
+        nextPaymentDate: existingAutopay.nextPaymentDate ? existingAutopay.nextPaymentDate.toDate() : new Date(),
       });
     } else if (!open) {
         form.reset({
