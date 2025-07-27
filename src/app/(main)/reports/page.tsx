@@ -2,11 +2,11 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, onSnapshot, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, parse, addMonths, isBefore, isEqual, isAfter, format } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -117,8 +117,7 @@ export default function ReportsPage() {
     if (isNaN(month) || isNaN(year)) {
       return { monthlyEvents: [], totalIncome: 0, totalExpenses: 0, netFlow: 0 };
     }
-    const selectedDate = new Date(year, month);
-    const interval = { start: startOfMonth(selectedDate), end: endOfMonth(selectedDate) };
+    const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
     let events: FinancialEvent[] = [];
 
@@ -138,28 +137,28 @@ export default function ReportsPage() {
         }
       }
     });
-
+    
     // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
-      if (!emi.startDate || !emi.loanAmount || !emi.amount) return;
-      const startDate = emi.startDate.toDate();
-      // Calculate total number of payments from loan amount and emi amount
-      const totalPayments = Math.ceil(emi.loanAmount / emi.amount);
+      if (!emi.startDate || emi.monthsRemaining === 0) return;
+      
+      let paymentDate = emi.startDate.toDate();
+      const emiEndDate = addMonths(paymentDate, emi.monthsRemaining);
 
-      for (let i = 0; i < totalPayments; i++) {
-        const paymentDate = addMonths(startDate, i);
-        if (isAfter(paymentDate, interval.end)) break;
+      while(isBefore(paymentDate, emiEndDate)) {
         if (isWithinInterval(paymentDate, interval)) {
-          events.push({
-            date: paymentDate,
-            description: emi.name,
-            amount: emi.amount,
-            type: 'fixed',
-            category: 'EMI',
-            icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-          });
-          break; // Found payment for this month, move to next EMI
+            events.push({
+              date: paymentDate,
+              description: emi.name,
+              amount: emi.amount,
+              type: 'fixed',
+              category: 'EMI',
+              icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
+            });
+            break; 
         }
+        paymentDate = addMonths(paymentDate, 1);
+        if (getYear(paymentDate) > year) break;
       }
     });
     
@@ -174,28 +173,27 @@ export default function ReportsPage() {
 
         let paymentDate = autopay.nextPaymentDate.toDate();
 
-        // Rewind to find the first potential payment date before or in the interval
-        while (isAfter(paymentDate, interval.start)) {
+        // Rewind to find a payment date that could be in or before the interval
+        while (paymentDate > interval.end) {
           paymentDate = addMonths(paymentDate, -monthIncrement);
         }
 
         // Fast-forward to find payments within the interval
-        while (isBefore(paymentDate, interval.end)) {
-          if (isWithinInterval(paymentDate, interval)) {
-            events.push({
-                date: paymentDate,
-                description: autopay.name,
-                amount: autopay.amount,
-                type: 'fixed',
-                category: autopay.category,
-                icon: categoryIcons[autopay.category] || Receipt,
-            });
-            break; // Assuming one payment per period, so break after finding one
-          }
+        while (paymentDate < interval.start) {
           paymentDate = addMonths(paymentDate, monthIncrement);
         }
+        
+        if (isWithinInterval(paymentDate, interval)) {
+          events.push({
+              date: paymentDate,
+              description: autopay.name,
+              amount: autopay.amount,
+              type: 'fixed',
+              category: autopay.category,
+              icon: categoryIcons[autopay.category] || Receipt,
+          });
+        }
     });
-
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
@@ -281,7 +279,7 @@ export default function ReportsPage() {
                     const Icon = event.icon;
                     return (
                       <TableRow key={index}>
-                        <TableCell>{event.date.toLocaleDateString()}</TableCell>
+                        <TableCell>{format(event.date, 'dd MMM, yyyy')}</TableCell>
                         <TableCell className="font-medium">
                             <div className="flex items-center gap-3">
                                <div className="bg-muted p-2 rounded-md">
@@ -319,3 +317,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
