@@ -6,7 +6,7 @@ import { collection, query, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore, isAfter, differenceInMonths } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -317,5 +317,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
