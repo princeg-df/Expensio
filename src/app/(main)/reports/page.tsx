@@ -125,7 +125,6 @@ export default function ReportsPage() {
 
     let events: FinancialEvent[] = [];
     
-    // Filter transactions for the selected month
     transactions.forEach(t => {
       if (t.date) {
         const tDate = t.date.toDate();
@@ -142,16 +141,15 @@ export default function ReportsPage() {
       }
     });
     
-    // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
         if (!emi.startDate || emi.monthsRemaining <= 0) return;
         
         let paymentDate = emi.startDate.toDate();
-        const emiEndDate = addMonths(paymentDate, emi.monthsRemaining);
 
-        while(isBefore(paymentDate, emiEndDate)) {
-             if (getYear(paymentDate) > year + 1) break; 
-             if (isWithinInterval(paymentDate, interval)) {
+        for (let i = 0; i < (emi.monthsRemaining + 100); i++) { // Loop past total months to be safe
+            if (getYear(paymentDate) > year + 1) break; 
+            
+            if (isWithinInterval(paymentDate, interval)) {
                 events.push({
                    date: paymentDate,
                    description: emi.name,
@@ -160,13 +158,13 @@ export default function ReportsPage() {
                    category: 'EMI',
                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-                break; 
+                break;
             }
+            if(isBefore(interval.end, paymentDate)) break;
             paymentDate = addMonths(paymentDate, 1);
         }
     });
     
-    // Calculate recurring Autopay payments for the selected month
     autopays.forEach(autopay => {
         if (!autopay.nextPaymentDate) return;
 
@@ -197,43 +195,19 @@ export default function ReportsPage() {
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const incomeFromTransactions = events
+    const income = events
       .filter((e) => e.type === 'income')
       .reduce((sum, e) => sum + e.amount, 0);
 
-    const expensesFromTransactions = events
-      .filter((e) => e.type === 'expense')
+    const expenses = events
+      .filter((e) => e.type === 'expense' || e.type === 'fixed')
       .reduce((sum, e) => sum + e.amount, 0);
-      
-    const expensesFromEmis = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
-    
-    const expensesFromAutopays = autopays.reduce((sum, autopay) => {
-        let monthlyAmount = 0;
-        switch (autopay.frequency) {
-            case 'Monthly':
-                monthlyAmount = autopay.amount;
-                break;
-            case 'Quarterly':
-                monthlyAmount = autopay.amount / 3;
-                break;
-            case 'Half-Yearly':
-                monthlyAmount = autopay.amount / 6;
-                break;
-            case 'Yearly':
-                monthlyAmount = autopay.amount / 12;
-                break;
-        }
-        return sum + monthlyAmount;
-    }, 0);
-
-
-    const calculatedExpenses = expensesFromTransactions + expensesFromEmis + expensesFromAutopays;
 
     return {
       monthlyEvents: events,
-      totalIncome: incomeFromTransactions,
-      totalExpenses: calculatedExpenses,
-      netFlow: incomeFromTransactions - calculatedExpenses,
+      totalIncome: income,
+      totalExpenses: expenses,
+      netFlow: income - expenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear]);
 
