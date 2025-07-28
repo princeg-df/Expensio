@@ -56,6 +56,21 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
+        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setBudget(userData.budget || 0);
+
+            // Backfill existing user data
+            if (!userData.name || !userData.mobileNumber) {
+                await updateDoc(userDocRef, {
+                    name: userData.name || 'Guest',
+                    mobileNumber: userData.mobileNumber || '9999999999',
+                });
+            }
+        }
+
         const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
         const transactionsSnapshot = await getDocs(transactionsQuery);
         const transactionsData: Transaction[] = [];
@@ -150,11 +165,6 @@ export default function DashboardPage() {
         }
         setAutopays(autopaysData);
 
-        const userDocRef = doc(db, `users/${user.uid}`);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-        setBudget(userDocSnap.data().budget || 0);
-        }
     } catch (error) {
         console.error("Error fetching data: ", error);
         toast({
@@ -465,5 +475,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

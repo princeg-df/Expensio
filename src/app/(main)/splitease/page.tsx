@@ -7,29 +7,58 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PlusCircle } from 'lucide-react';
 import { CreateGroupDialog } from '@/components/splitease/create-group-dialog';
 import { useAuth } from '@/providers/app-provider';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
+import type { InvitedMember } from '@/lib/types';
+
 
 export default function SplitEasePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
-  const handleCreateGroup = async (groupName: string, selectedMembers: string[], invitedEmails: string[]) => {
+  const handleCreateGroup = async (groupName: string, selectedMembers: string[], invitedMembers: InvitedMember[]) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to create a group.' });
       return;
     }
 
+    const batch = writeBatch(db);
+
     try {
-      await addDoc(collection(db, 'groups'), {
+      // Create placeholder user docs for invited members who don't exist
+      for (const invited of invitedMembers) {
+        const userQuery = query(collection(db, 'users'), where('email', '==', invited.email));
+        const userSnapshot = await getDocs(userQuery);
+        
+        if (userSnapshot.empty) {
+          const newUserRef = doc(collection(db, 'users'));
+           batch.set(newUserRef, {
+            ...invited,
+            createdAt: Timestamp.now(),
+            isPlaceholder: true, // Flag to identify placeholder accounts
+          });
+          // Add the new user's ID to the members list
+          selectedMembers.push(newUserRef.id);
+        } else {
+            // If user already exists, just add their ID to the group
+            selectedMembers.push(userSnapshot.docs[0].id);
+        }
+      }
+      
+      const allMemberIds = Array.from(new Set([user.uid, ...selectedMembers]));
+
+      const groupRef = doc(collection(db, 'groups'));
+      batch.set(groupRef, {
         name: groupName,
-        members: [user.uid, ...selectedMembers],
-        invitedMembers: invitedEmails,
+        members: allMemberIds,
         createdAt: Timestamp.now(),
         createdBy: user.uid,
       });
+
+      await batch.commit();
+
       toast({ title: 'Success', description: `Group "${groupName}" created successfully.` });
       setIsCreateGroupOpen(false);
       // Here you might want to refetch groups in the future

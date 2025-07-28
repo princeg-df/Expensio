@@ -35,12 +35,27 @@ export type Category = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
+// User type
+export type AppUser = {
+  id: string;
+  email: string;
+  name?: string;
+  mobileNumber?: string;
+};
+
+
 // Types for SplitEase Feature
+export type InvitedMember = {
+  name: string;
+  email: string;
+  mobileNumber: string;
+}
+
 export type Group = {
   id: string;
   name: string;
   members: string[]; // Array of user UIDs
-  invitedMembers?: string[]; // Array of invited emails
+  invitedMembers?: InvitedMember[]; // Array of invited user details
   createdAt: Timestamp;
   createdBy: string; // UID of the user who created the group
 };

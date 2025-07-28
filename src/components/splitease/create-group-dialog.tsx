@@ -8,6 +8,7 @@ import * as z from 'zod';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
+import type { AppUser, InvitedMember } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,24 +18,28 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader } from '../ui/loader';
 import { useToast } from '@/hooks/use-toast';
-import { X } from 'lucide-react';
+import { X, UserPlus } from 'lucide-react';
 import { Badge } from '../ui/badge';
 import { Separator } from '../ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 
-type AppUser = {
-  id: string;
-  email: string;
-};
 
-const formSchema = z.object({
+const groupFormSchema = z.object({
   groupName: z.string().min(3, { message: 'Group name must be at least 3 characters.' }),
   members: z.array(z.string()),
 });
 
+const inviteFormSchema = z.object({
+    name: z.string().min(1, 'Name is required.'),
+    email: z.string().email('Invalid email address.'),
+    mobileNumber: z.string().length(10, 'Must be 10 digits.'),
+});
+
+
 type CreateGroupDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onCreateGroup: (groupName: string, selectedMembers: string[], invitedEmails: string[]) => Promise<void>;
+  onCreateGroup: (groupName: string, selectedMembers: string[], invitedMembers: InvitedMember[]) => Promise<void>;
 };
 
 export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: CreateGroupDialogProps) {
@@ -42,8 +47,7 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
   const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
-  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
-  const [emailInput, setEmailInput] = useState('');
+  const [invitedMembers, setInvitedMembers] = useState<InvitedMember[]>([]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -66,46 +70,45 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
     }
   }, [isOpen, user, toast]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const groupForm = useForm<z.infer<typeof groupFormSchema>>({
+    resolver: zodResolver(groupFormSchema),
     defaultValues: {
       groupName: '',
       members: [],
     },
   });
 
+  const inviteForm = useForm<z.infer<typeof inviteFormSchema>>({
+    resolver: zodResolver(inviteFormSchema),
+    defaultValues: { name: '', email: '', mobileNumber: '' }
+  });
+
   const handleClose = () => {
-    form.reset();
-    setInvitedEmails([]);
-    setEmailInput('');
+    groupForm.reset();
+    inviteForm.reset();
+    setInvitedMembers([]);
     onOpenChange(false);
   };
   
-  const handleAddEmail = () => {
-    const emailSchema = z.string().email();
-    const result = emailSchema.safeParse(emailInput);
-    if (!result.success) {
-        toast({ variant: 'destructive', title: 'Invalid Email', description: 'Please enter a valid email address.' });
-        return;
-    }
-    if (invitedEmails.includes(emailInput) || allUsers.some(u => u.email === emailInput) || user?.email === emailInput) {
+  const handleAddInvite = (values: z.infer<typeof inviteFormSchema>) => {
+    if (invitedMembers.some(m => m.email === values.email) || allUsers.some(u => u.email === values.email) || user?.email === values.email) {
         toast({ variant: 'destructive', title: 'Duplicate Email', description: 'This user is already in the list.' });
         return;
     }
-    setInvitedEmails(prev => [...prev, emailInput]);
-    setEmailInput('');
+    setInvitedMembers(prev => [...prev, values]);
+    inviteForm.reset();
   }
   
-  const handleRemoveEmail = (emailToRemove: string) => {
-    setInvitedEmails(prev => prev.filter(email => email !== emailToRemove));
+  const handleRemoveInvite = (emailToRemove: string) => {
+    setInvitedMembers(prev => prev.filter(m => m.email !== emailToRemove));
   }
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (values.members.length === 0 && invitedEmails.length === 0) {
+  async function onSubmit(values: z.infer<typeof groupFormSchema>) {
+    if (values.members.length === 0 && invitedMembers.length === 0) {
         toast({ variant: 'destructive', title: 'No Members', description: 'You must add at least one other member or invite someone.' });
         return;
     }
-    await onCreateGroup(values.groupName, values.members, invitedEmails);
+    await onCreateGroup(values.groupName, values.members, invitedMembers);
     handleClose();
   }
 
@@ -118,10 +121,10 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
             Give your group a name and add members to start splitting expenses.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <Form {...groupForm}>
+          <form onSubmit={groupForm.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
-              control={form.control}
+              control={groupForm.control}
               name="groupName"
               render={({ field }) => (
                 <FormItem>
@@ -134,21 +137,46 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
               )}
             />
             
-            <div>
-              <FormLabel>Invite users by email</FormLabel>
-              <div className="flex items-center gap-2 mt-2">
-                <Input
-                    type="email"
-                    placeholder="name@example.com"
-                    value={emailInput}
-                    onChange={e => setEmailInput(e.target.value)}
-                />
-                <Button type="button" onClick={handleAddEmail}>Add</Button>
-              </div>
-            </div>
+             <Collapsible>
+                <CollapsibleTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Invite New Member by Email
+                    </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                   <Form {...inviteForm}>
+                    <div className="mt-4 p-4 border rounded-md space-y-4">
+                       <FormField
+                        control={inviteForm.control}
+                        name="name"
+                        render={({ field }) => (
+                            <FormItem><FormLabel>Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}
+                        />
+                        <FormField
+                        control={inviteForm.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" placeholder="name@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}
+                        />
+                        <FormField
+                        control={inviteForm.control}
+                        name="mobileNumber"
+                        render={({ field }) => (
+                            <FormItem><FormLabel>Mobile Number</FormLabel><FormControl><Input type="tel" placeholder="9999999999" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}
+                        />
+                        <Button type="button" onClick={inviteForm.handleSubmit(handleAddInvite)} className="w-full">Add Invitee</Button>
+                    </div>
+                   </Form>
+                </CollapsibleContent>
+            </Collapsible>
+
 
             <FormField
-              control={form.control}
+              control={groupForm.control}
               name="members"
               render={() => (
                 <FormItem>
@@ -161,28 +189,31 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
                       <div className="flex items-center justify-center h-full">
                         <Loader />
                       </div>
-                    ) : (allUsers.length === 0 && invitedEmails.length === 0) ? (
+                    ) : (allUsers.length === 0 && invitedMembers.length === 0) ? (
                        <p className="text-sm text-muted-foreground text-center pt-14">No other users found. Invite someone by email!</p>
                     ) : (
                       <>
-                        {invitedEmails.map(email => (
-                           <div key={email} className="flex items-center justify-between mb-4">
+                        {invitedMembers.map(invite => (
+                           <div key={invite.email} className="flex items-center justify-between mb-4">
                              <div className="flex items-center space-x-3">
                                <Badge variant="secondary">Invited</Badge>
-                               <span className="font-normal">{email}</span>
+                               <div className="flex flex-col">
+                                 <span className="font-medium text-sm">{invite.name}</span>
+                                 <span className="text-xs text-muted-foreground">{invite.email}</span>
+                               </div>
                              </div>
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEmail(email)}>
+                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveInvite(invite.email)}>
                                <X className="h-4 w-4"/>
                              </Button>
                            </div>
                         ))}
 
-                        {invitedEmails.length > 0 && allUsers.length > 0 && <Separator className="my-4"/>}
+                        {invitedMembers.length > 0 && allUsers.length > 0 && <Separator className="my-4"/>}
 
                         {allUsers.map((appUser) => (
                           <FormField
                             key={appUser.id}
-                            control={form.control}
+                            control={groupForm.control}
                             name="members"
                             render={({ field }) => {
                               return (
@@ -204,7 +235,10 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
                                       }}
                                     />
                                   </FormControl>
-                                  <FormLabel className="font-normal">{appUser.email}</FormLabel>
+                                  <div className="flex flex-col">
+                                    <FormLabel className="font-normal">{appUser.name || 'Guest'}</FormLabel>
+                                    <p className="text-xs text-muted-foreground">{appUser.email}</p>
+                                  </div>
                                 </FormItem>
                               );
                             }}
