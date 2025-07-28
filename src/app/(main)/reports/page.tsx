@@ -206,7 +206,7 @@ export default function ReportsPage() {
       .reduce((sum, e) => sum + e.amount, 0);
       
     const expensesFromEmis = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
-
+    
     const expensesFromAutopays = autopays.reduce((sum, autopay) => {
         let monthlyAmount = 0;
         switch (autopay.frequency) {
@@ -225,6 +225,7 @@ export default function ReportsPage() {
         }
         return sum + monthlyAmount;
     }, 0);
+
 
     const calculatedExpenses = expensesFromTransactions + expensesFromEmis + expensesFromAutopays;
 
@@ -276,7 +277,7 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <SummaryCard icon={CircleDollarSign} title="Total Income" value={totalIncome} />
+        <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
         <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
         <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
@@ -345,5 +346,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
