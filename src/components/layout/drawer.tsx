@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -9,12 +9,13 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Link from 'next/link';
 import { ChangePasswordDialog } from './change-password-dialog';
+import { Skeleton } from '../ui/skeleton';
 
 type AppDrawerProps = {
     isOpen: boolean;
@@ -55,7 +57,23 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function fetchUserName() {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                setUserName(userDocSnap.data().name || 'Guest');
+            }
+        }
+    }
+    if(isOpen) {
+        fetchUserName();
+    }
+  }, [user, isOpen]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -280,7 +298,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         if (data.autopays && Array.isArray(data.autopays)) {
           data.autopays.forEach((a: any) => {
             const docRef = doc(collection(db, `users/${user.uid}/autopays`));
-            const autopayData = { ...a, nextPaymentDate: Timestamp.fromDate(new Date(a.nextPaymentDate)) };
+            const autopayData = { ...a, startDate: Timestamp.fromDate(new Date(a.startDate)), nextPaymentDate: Timestamp.fromDate(new Date(a.nextPaymentDate)) };
             delete autopayData.id;
             batch.set(docRef, autopayData);
           });
@@ -298,7 +316,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         window.location.reload();
       } catch (error) {
         console.error("Error importing data: ", error);
-        toast({ variant: 'destructive', title: "Import Failed", description: "The file is not a valid JSON backup file." });
+        toast({ variant: "destructive", title: "Import Failed", description: "The file is not a valid JSON backup file." });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -312,6 +330,19 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         <SheetContent className="flex flex-col p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle><ExpensioLogo /></SheetTitle>
+             {userName ? (
+              <SheetDescription asChild>
+                <div>
+                  <div className="font-semibold text-foreground">{userName}</div>
+                  <div className="text-xs">{user?.email}</div>
+                </div>
+              </SheetDescription>
+            ) : (
+              <div className="pt-1.5">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-32 mt-2" />
+              </div>
+            )}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="flex flex-col gap-2">
@@ -325,6 +356,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                   <LineChart className="mr-2 h-4 w-4" /> Reports
                 </Button>
               </Link>
+              <Link href="/splitease" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/splitease' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Users className="mr-2 h-4 w-4" /> SplitEase
+                </Button>
+              </Link>
                {user?.email === ADMIN_EMAIL && (
                 <Link href="/admin" onClick={() => onOpenChange(false)}>
                     <Button variant={pathname.startsWith('/admin') ? 'secondary' : 'ghost'} className="w-full justify-start">
@@ -332,6 +368,15 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                     </Button>
                 </Link>
                )}
+              <Separator />
+               <Link href="/profile" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/profile' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <User className="mr-2 h-4 w-4" /> Profile
+                </Button>
+              </Link>
+              <Button variant="ghost" onClick={() => setIsChangePasswordOpen(true)} className="w-full justify-start">
+                  <Lock className="mr-2 h-4 w-4" /> Change Password
+              </Button>
               <Separator />
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
               <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>
@@ -352,9 +397,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
                  <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
                </Button>
-                <Button variant="ghost" onClick={() => setIsChangePasswordOpen(true)} className="w-full justify-start">
-                    <Lock className="mr-2 h-4 w-4" /> Change Password
-                </Button>
             </nav>
           </div>
           <div className="p-4 border-t">

@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
   const [budget, setBudget] = useState(0);
+  const [userName, setUserName] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
   
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -56,6 +57,22 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
+        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            setBudget(userData.budget || 0);
+            setUserName(userData.name || 'Guest');
+
+            // Backfill existing user data
+            if (!userData.name || !userData.mobileNumber) {
+                await updateDoc(userDocRef, {
+                    name: userData.name || 'Guest',
+                    mobileNumber: userData.mobileNumber || '9999999999',
+                });
+            }
+        }
+
         const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
         const transactionsSnapshot = await getDocs(transactionsQuery);
         const transactionsData: Transaction[] = [];
@@ -150,11 +167,6 @@ export default function DashboardPage() {
         }
         setAutopays(autopaysData);
 
-        const userDocRef = doc(db, `users/${user.uid}`);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-        setBudget(userDocSnap.data().budget || 0);
-        }
     } catch (error) {
         console.error("Error fetching data: ", error);
         toast({
@@ -326,7 +338,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Hi, {userName}!</h1>
           <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -465,5 +477,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
