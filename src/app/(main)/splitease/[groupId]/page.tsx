@@ -157,17 +157,17 @@ export default function GroupDetailPage() {
     const transactions = [];
 
     while(debtors.length > 0 && creditors.length > 0) {
-      const debtor = debtors[0];
-      const creditor = creditors[0];
-      const amount = Math.min(-debtor.amount, creditor.amount);
+      const currentDebtor = debtors[0];
+      const currentCreditor = creditors[0];
+      const amount = Math.min(-currentDebtor.amount, currentCreditor.amount);
 
-      transactions.push({ from: debtor.uid, to: creditor.uid, amount });
+      transactions.push({ from: currentDebtor.uid, to: currentCreditor.uid, amount });
 
-      debtor.amount += amount;
-      creditor.amount -= amount;
+      currentDebtor.amount += amount;
+      currentCreditor.amount -= amount;
 
-      if(Math.abs(debtor.amount) < 0.01) debtors.shift();
-      if(Math.abs(creditor.amount) < 0.01) creditors.shift();
+      if(Math.abs(currentDebtor.amount) < 0.01) debtors.shift();
+      if(Math.abs(currentCreditor.amount) < 0.01) creditors.shift();
     }
     
     const owesList = transactions
