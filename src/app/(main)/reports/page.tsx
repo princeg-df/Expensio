@@ -125,6 +125,7 @@ export default function ReportsPage() {
 
     let events: FinancialEvent[] = [];
     
+    // --- START: Detailed Event List Calculation (Cash Flow) ---
     transactions.forEach(t => {
       if (t.date) {
         const tDate = t.date.toDate();
@@ -142,74 +143,98 @@ export default function ReportsPage() {
     });
     
     emis.forEach(emi => {
-        if (!emi.startDate || emi.monthsRemaining <= 0 || isAfter(emi.startDate.toDate(), interval.end)) return;
-        
-        const startDate = emi.startDate.toDate();
-        const loanEndDate = addMonths(startDate, emi.monthsRemaining);
+      if (!emi.startDate || emi.monthsRemaining <= 0 || isAfter(emi.startDate.toDate(), interval.end)) return;
 
-        let paymentDate = startDate;
-        while(isBefore(paymentDate, loanEndDate)) {
-             if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
-                events.push({
-                   date: paymentDate,
-                   description: emi.name,
-                   amount: emi.amount,
-                   type: 'fixed',
-                   category: 'EMI',
-                   icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-                });
-                break;
-            }
-            if (isAfter(paymentDate, interval.end)) break;
-            paymentDate = addMonths(paymentDate, 1);
-        }
+      let paymentDate = emi.startDate.toDate();
+      while (getMonth(paymentDate) < month && getYear(paymentDate) <= year) {
+          paymentDate = addMonths(paymentDate, 1);
+          if (getYear(paymentDate) > year) break;
+      }
+      
+      if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
+          if (isBefore(paymentDate, addMonths(emi.startDate.toDate(), emi.monthsRemaining))) {
+              events.push({
+                 date: paymentDate,
+                 description: emi.name,
+                 amount: emi.amount,
+                 type: 'fixed',
+                 category: 'EMI',
+                 icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
+              });
+          }
+      }
     });
-    
+
     autopays.forEach(autopay => {
       if (!autopay.startDate || isAfter(autopay.startDate.toDate(), interval.end)) return;
 
       let monthIncrement = 1;
-      switch (autopay.frequency) {
-          case 'Quarterly': monthIncrement = 3; break;
-          case 'Half-Yearly': monthIncrement = 6; break;
-          case 'Yearly': monthIncrement = 12; break;
-      }
-      
+      if (autopay.frequency === 'Quarterly') monthIncrement = 3;
+      if (autopay.frequency === 'Half-Yearly') monthIncrement = 6;
+      if (autopay.frequency === 'Yearly') monthIncrement = 12;
+
       let paymentDate = autopay.startDate.toDate();
-      while(isBefore(paymentDate, interval.start)) {
-        paymentDate = addMonths(paymentDate, monthIncrement);
+      while (isBefore(paymentDate, interval.start)) {
+          paymentDate = addMonths(paymentDate, monthIncrement);
       }
 
       if (isWithinInterval(paymentDate, interval)) {
-        events.push({
-            date: paymentDate,
-            description: autopay.name,
-            amount: autopay.amount,
-            type: 'fixed',
-            category: autopay.category,
-            icon: categoryIcons[autopay.category] || Receipt,
-        });
+          events.push({
+              date: paymentDate,
+              description: autopay.name,
+              amount: autopay.amount,
+              type: 'fixed',
+              category: autopay.category,
+              icon: categoryIcons[autopay.category] || Receipt,
+          });
       }
     });
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
-    
-    const income = events
-      .filter((e) => e.type === 'income')
-      .reduce((sum, e) => sum + e.amount, 0);
+    // --- END: Detailed Event List Calculation ---
 
-    const monthlyExpenses = events
-      .filter(e => e.type === 'expense' || e.type === 'fixed')
-      .reduce((sum, e) => sum + e.amount, 0);
+    // --- START: Summary Card Calculation (Accrual) ---
+    const incomeFromTransactions = transactions
+        .filter(t => t.type === 'income' && t.date && isWithinInterval(t.date.toDate(), interval))
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const expensesFromTransactions = transactions
+        .filter(t => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const emisAmount = emis.reduce((sum, emi) => {
+        if (emi.monthsRemaining > 0 && emi.startDate && !isAfter(emi.startDate.toDate(), interval.end)) {
+            return sum + emi.amount;
+        }
+        return sum;
+    }, 0);
+
+    const autopaysAmount = autopays.reduce((sum, autopay) => {
+        if (autopay.startDate && !isAfter(autopay.startDate.toDate(), interval.end)) {
+            let monthlyAmount = 0;
+            switch (autopay.frequency) {
+                case 'Monthly': monthlyAmount = autopay.amount; break;
+                case 'Quarterly': monthlyAmount = autopay.amount / 3; break;
+                case 'Half-Yearly': monthlyAmount = autopay.amount / 6; break;
+                case 'Yearly': monthlyAmount = autopay.amount / 12; break;
+            }
+            return sum + monthlyAmount;
+        }
+        return sum;
+    }, 0);
+
+    const totalAccruedExpenses = expensesFromTransactions + emisAmount + autopaysAmount;
+    // --- END: Summary Card Calculation ---
 
     return {
       monthlyEvents: events,
-      totalIncome: income,
-      totalExpenses: monthlyExpenses,
-      netFlow: income - monthlyExpenses,
-      remainingAmount: budget - monthlyExpenses,
+      totalIncome: incomeFromTransactions,
+      totalExpenses: totalAccruedExpenses,
+      netFlow: incomeFromTransactions - totalAccruedExpenses,
+      remainingAmount: budget - totalAccruedExpenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear, budget]);
+
 
   if (authLoading || loading) {
     return (
@@ -260,6 +285,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
+          <CardDescription>This list shows actual transactions scheduled for this month. Summary cards above show the averaged monthly cost.</CardDescription>
         </CardHeader>
         <CardContent>
            <Table>
@@ -322,3 +348,5 @@ export default function ReportsPage() {
   );
 
 }
+
+    
