@@ -6,7 +6,7 @@ import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore, getMonth } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore, getMonth, isAfter } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -146,10 +146,15 @@ export default function ReportsPage() {
         if (!emi.startDate || emi.monthsRemaining <= 0) return;
         
         let paymentDate = emi.startDate.toDate();
-        const endDate = addMonths(emi.startDate.toDate(), emi.monthsRemaining);
+        // Ensure the initial payment date isn't in the future relative to the start of the loan
+        while(isBefore(paymentDate, emi.startDate.toDate())) {
+          paymentDate = addMonths(paymentDate, 1);
+        }
 
-        while(isBefore(paymentDate, endDate)) {
-            if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
+        const loanEndDate = addMonths(emi.startDate.toDate(), emi.monthsRemaining);
+
+        while(isBefore(paymentDate, loanEndDate)) {
+             if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
                 events.push({
                    date: paymentDate,
                    description: emi.name,
@@ -158,7 +163,7 @@ export default function ReportsPage() {
                    category: 'EMI',
                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-                break;
+                break; // Found the payment for this month
             }
             paymentDate = addMonths(paymentDate, 1);
         }
@@ -176,16 +181,16 @@ export default function ReportsPage() {
 
         let paymentDate = autopay.nextPaymentDate.toDate();
 
-        // Go back in time to find the first payment to check against the interval
-        while (isBefore(interval.start, paymentDate)) {
+        // Go back in time to find a payment date that could be a basis for this month's check
+        while (isAfter(paymentDate, interval.start)) {
              const prevDate = addMonths(paymentDate, -monthIncrement);
-             if(getYear(prevDate) < year - 1) break; // Optimization
+             if(getYear(prevDate) < year - 2) break; // Optimization
              paymentDate = prevDate;
         }
 
         // Go forward and check for payments within the interval
         while (isBefore(paymentDate, interval.end)) {
-             if (isWithinInterval(paymentDate, interval)) {
+             if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
                 events.push({
                     date: paymentDate,
                     description: autopay.name,
@@ -202,31 +207,39 @@ export default function ReportsPage() {
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // --- Calculate monthly cost for summary cards ---
+    // --- Calculate monthly cost for summary cards (Accrual Method) ---
     
     const variableExpenses = transactions
       .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const emisAmount = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
+    const emisAmount = emis.reduce((sum, emi) => {
+        if (emi.monthsRemaining > 0 && emi.startDate && isBefore(emi.startDate.toDate(), interval.end)) {
+            return sum + emi.amount;
+        }
+        return sum;
+    }, 0);
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
-        let monthlyAmount = 0;
-        switch (autopay.frequency) {
-            case 'Monthly':
-                monthlyAmount = autopay.amount;
-                break;
-            case 'Quarterly':
-                monthlyAmount = autopay.amount / 3;
-                break;
-            case 'Half-Yearly':
-                monthlyAmount = autopay.amount / 6;
-                break;
-            case 'Yearly':
-                monthlyAmount = autopay.amount / 12;
-                break;
+        if (autopay.nextPaymentDate && isBefore(autopay.nextPaymentDate.toDate(), interval.end)) {
+            let monthlyAmount = 0;
+            switch (autopay.frequency) {
+                case 'Monthly':
+                    monthlyAmount = autopay.amount;
+                    break;
+                case 'Quarterly':
+                    monthlyAmount = autopay.amount / 3;
+                    break;
+                case 'Half-Yearly':
+                    monthlyAmount = autopay.amount / 6;
+                    break;
+                case 'Yearly':
+                    monthlyAmount = autopay.amount / 12;
+                    break;
+            }
+            return sum + monthlyAmount;
         }
-        return sum + monthlyAmount;
+        return sum;
     }, 0);
     
     const totalMonthlyExpenses = variableExpenses + emisAmount + autopaysAmount;
@@ -293,7 +306,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
-          <CardContent>This list shows actual transactions that occurred this month. The summary cards above reflect your average monthly cost.</CardContent>
+          <CardContent className="p-0 pt-2 text-sm text-muted-foreground">This list shows actual transactions scheduled for this month. The summary cards above reflect your average monthly cost.</CardContent>
         </CardHeader>
         <CardContent>
            <Table>
@@ -354,6 +367,5 @@ export default function ReportsPage() {
       </Card>
     </div>
   );
-}
 
     
