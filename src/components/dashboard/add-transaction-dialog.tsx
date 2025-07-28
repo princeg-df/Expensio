@@ -91,13 +91,14 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger}
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{existingTransaction ? 'Edit' : 'Add New'} Transaction</DialogTitle>
           <DialogDescription>
             {existingTransaction ? 'Update the details of your transaction.' : 'Enter the details of your income or expense.'}
           </DialogDescription>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -193,14 +194,13 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-background py-4">
               <Button type="submit">{existingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
-
-    

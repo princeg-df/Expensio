@@ -98,13 +98,14 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{existingAutopay ? 'Edit' : 'Add'} Autopay Expense</DialogTitle>
           <DialogDescription>
             {existingAutopay ? 'Update the details of your autopay.' : 'For recurring payments like subscriptions, SIPs, etc.'}
           </DialogDescription>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -247,11 +248,12 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-background py-4">
               <Button type="submit">{existingAutopay ? 'Save Changes' : 'Add Autopay'}</Button>
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

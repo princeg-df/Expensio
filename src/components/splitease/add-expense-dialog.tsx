@@ -68,6 +68,7 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
             Enter the details of the expense and how it should be split.
           </DialogDescription>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -167,7 +168,7 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
                 </FormItem>
               )}
             />
-            <DialogFooter>
+             <DialogFooter className="sticky bottom-0 bg-background py-4">
               <Button type="button" variant="ghost" onClick={handleClose}>
                 Cancel
               </Button>
@@ -175,6 +176,7 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

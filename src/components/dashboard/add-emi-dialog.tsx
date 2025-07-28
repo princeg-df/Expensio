@@ -92,13 +92,14 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
         {trigger}
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{existingEmi ? 'Edit' : 'Add'} Running EMI</DialogTitle>
           <DialogDescription>
             {existingEmi ? 'Update the details of your ongoing EMI.' : 'Enter the details of your ongoing EMI.'}
           </DialogDescription>
         </DialogHeader>
+        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -221,11 +222,12 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
                 </FormItem>
               )}
             />
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-background py-4">
               <Button type="submit">{existingEmi ? 'Save Changes' : 'Add EMI'}</Button>
             </DialogFooter>
           </form>
         </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
