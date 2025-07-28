@@ -106,65 +106,58 @@ export default function GroupDetailPage() {
     }
   };
   
-  const balances = useMemo(() => {
-    const balanceMap: { [key: string]: number } = {};
-    if (!members.length) return { debtors: [], creditors: [] };
+  const { owes, owed } = useMemo(() => {
+    if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
 
-    members.forEach(member => {
-        balanceMap[member.id] = 0;
-    });
+    const balances: { [uid: string]: number } = {};
+    members.forEach(m => { balances[m.id] = 0; });
 
     expenses.forEach(expense => {
-        balanceMap[expense.paidBy] += expense.amount;
+        balances[expense.paidBy] += expense.amount;
         expense.splitWith.forEach(share => {
-            balanceMap[share.uid] -= share.amount;
+            balances[share.uid] -= share.amount;
         });
     });
 
-    const debtors: { uid: string, amount: number }[] = [];
-    const creditors: { uid: string, amount: number }[] = [];
+    const debtors = Object.entries(balances).filter(([, amount]) => amount < 0).map(([uid, amount]) => ({ uid, amount: -amount }));
+    const creditors = Object.entries(balances).filter(([, amount]) => amount > 0).map(([uid, amount]) => ({ uid, amount }));
 
-    Object.entries(balanceMap).forEach(([uid, amount]) => {
-        if (amount < 0) {
-            debtors.push({ uid, amount: -amount });
-        } else if (amount > 0) {
-            creditors.push({ uid, amount });
-        }
-    });
-
-    return { debtors, creditors };
-  }, [expenses, members]);
-
-  const { owes, owed } = useMemo(() => {
-    if (!user) return { owes: [], owed: [] };
     const owesList: { name: string, amount: number }[] = [];
     const owedList: { name: string, amount: number }[] = [];
+    
+    const currentUserBalance = balances[user.id];
 
-    let userBalance = (balances.creditors.find(c => c.uid === user.id)?.amount || 0) - 
-                      (balances.debtors.find(d => d.uid === user.id)?.amount || 0);
-
-    if (userBalance > 0) { // User is a creditor
-        balances.debtors.forEach(debtor => {
-            const amountOwed = Math.min(userBalance, debtor.amount);
-            if (amountOwed > 0.01) {
-                owedList.push({ name: members.find(m => m.id === debtor.uid)?.name || 'Unknown', amount: amountOwed });
-                userBalance -= amountOwed;
+    if (currentUserBalance < 0) { // Current user is a debtor
+        let amountToSettle = -currentUserBalance;
+        for (const creditor of creditors) {
+            if (amountToSettle <= 0) break;
+            const settlementAmount = Math.min(amountToSettle, creditor.amount);
+            if (settlementAmount > 0.01) {
+                owesList.push({
+                    name: members.find(m => m.id === creditor.uid)?.name || 'Unknown',
+                    amount: settlementAmount
+                });
+                amountToSettle -= settlementAmount;
             }
-        });
-    } else if (userBalance < 0) { // User is a debtor
-        userBalance = -userBalance;
-        balances.creditors.forEach(creditor => {
-            const amountToPay = Math.min(userBalance, creditor.amount);
-            if (amountToPay > 0.01) {
-                owesList.push({ name: members.find(m => m.id === creditor.uid)?.name || 'Unknown', amount: amountToPay });
-                userBalance -= amountToPay;
-            }
-        });
+        }
+    } else if (currentUserBalance > 0) { // Current user is a creditor
+        let amountToReceive = currentUserBalance;
+         for (const debtor of debtors) {
+            if (amountToReceive <= 0) break;
+            const settlementAmount = Math.min(amountToReceive, debtor.amount);
+             if (settlementAmount > 0.01) {
+                owedList.push({
+                    name: members.find(m => m.id === debtor.uid)?.name || 'Unknown',
+                    amount: settlementAmount
+                });
+                amountToReceive -= settlementAmount;
+             }
+        }
     }
 
     return { owes: owesList, owed: owedList };
-  }, [balances, user, members]);
 
+  }, [expenses, members, user]);
 
 
   if (loading || authLoading) {
