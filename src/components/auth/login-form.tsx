@@ -51,6 +51,14 @@ export function LoginForm() {
       setLoading(false);
     }
   }
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader />
+      </div>
+    );
+  }
 
   return (
     <Form {...form}>
@@ -82,7 +90,6 @@ export function LoginForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading && <Loader iconClassName="h-4 w-4 mr-2" />}
           Log In
         </Button>
       </form>

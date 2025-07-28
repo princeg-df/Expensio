@@ -58,9 +58,16 @@ export function SignupForm() {
         title: 'Sign Up Failed',
         description: error.message,
       });
-    } finally {
       setLoading(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <Loader />
+      </div>
+    );
   }
 
   return (
@@ -93,7 +100,6 @@ export function SignupForm() {
           )}
         />
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading && <Loader iconClassName="h-4 w-4 mr-2" />}
           Sign Up
         </Button>
       </form>
