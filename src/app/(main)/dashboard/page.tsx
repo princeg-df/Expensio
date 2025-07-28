@@ -74,6 +74,28 @@ export default function DashboardPage() {
         emisSnapshot.forEach((doc) => {
           let emi = { id: doc.id, ...doc.data() } as Emi;
           
+          let needsUpdate = false;
+          const updates: Partial<Emi> = {};
+
+          if (!emi.startDate) {
+            const defaultDate = new Date();
+            defaultDate.setDate(15);
+            updates.startDate = Timestamp.fromDate(defaultDate);
+            needsUpdate = true;
+          }
+           if (!emi.nextPaymentDate) {
+            const defaultDate = new Date();
+            defaultDate.setDate(15);
+            updates.nextPaymentDate = Timestamp.fromDate(defaultDate);
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            batch.update(doc.ref, updates);
+            hasUpdates = true;
+            emi = { ...emi, ...updates }; 
+          }
+          
           if (emi.nextPaymentDate && emi.monthsRemaining > 0) {
             const nextPaymentDate = emi.nextPaymentDate.toDate();
 
@@ -81,10 +103,7 @@ export default function DashboardPage() {
                 let monthsPassed = 0;
                 let newNextPaymentDate = nextPaymentDate;
                 
-                let emiStartDate = emi.startDate ? emi.startDate.toDate() : newNextPaymentDate;
-
-
-                while(newNextPaymentDate < currentDate && emi.monthsRemaining - monthsPassed > 0) {
+                while(newNextPaymentDate < currentDate && (emi.monthsRemaining - monthsPassed > 0)) {
                     monthsPassed++;
                     newNextPaymentDate = addMonths(newNextPaymentDate, 1);
                 }
@@ -98,12 +117,11 @@ export default function DashboardPage() {
                         monthsRemaining: newMonthsRemaining,
                         nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
                     });
-                    hasUpdates = true;
                 } else {
                     emi.monthsRemaining = 0;
                     batch.update(doc.ref, { monthsRemaining: 0 });
-                    hasUpdates = true;
                 }
+                hasUpdates = true;
             }
           }
           emisData.push(emi);
@@ -423,9 +441,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    
