@@ -134,7 +134,7 @@ export default function GroupDetailPage() {
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
+    if (!user || !members.length) return { owes: [], owed: [] };
 
     const balances: { [uid: string]: number } = {};
     members.forEach(m => { balances[m.id] = 0; });
@@ -146,42 +146,38 @@ export default function GroupDetailPage() {
         });
     });
 
-    const debtors = Object.entries(balances).filter(([, amount]) => amount < 0).map(([uid, amount]) => ({ uid, amount: -amount }));
-    const creditors = Object.entries(balances).filter(([, amount]) => amount > 0).map(([uid, amount]) => ({ uid, amount }));
+    const debtors = Object.entries(balances)
+      .filter(([, amount]) => amount < 0)
+      .map(([uid, amount]) => ({ uid, amount }));
 
-    const owesList: { name: string, amount: number }[] = [];
-    const owedList: { name: string, amount: number }[] = [];
+    const creditors = Object.entries(balances)
+      .filter(([, amount]) => amount > 0)
+      .map(([uid, amount]) => ({ uid, amount }));
     
-    const currentUserBalance = balances[user.id];
+    const transactions = [];
 
-    if (currentUserBalance < 0) { // Current user is a debtor
-        let amountToSettle = -currentUserBalance;
-        for (const creditor of creditors) {
-            if (amountToSettle <= 0) break;
-            const settlementAmount = Math.min(amountToSettle, creditor.amount);
-            if (settlementAmount > 0.01) {
-                owesList.push({
-                    name: members.find(m => m.id === creditor.uid)?.name || 'Unknown',
-                    amount: settlementAmount
-                });
-                amountToSettle -= settlementAmount;
-            }
-        }
-    } else if (currentUserBalance > 0) { // Current user is a creditor
-        let amountToReceive = currentUserBalance;
-         for (const debtor of debtors) {
-            if (amountToReceive <= 0) break;
-            const settlementAmount = Math.min(amountToReceive, debtor.amount);
-             if (settlementAmount > 0.01) {
-                owedList.push({
-                    name: members.find(m => m.id === debtor.uid)?.name || 'Unknown',
-                    amount: settlementAmount
-                });
-                amountToReceive -= settlementAmount;
-             }
-        }
+    while(debtors.length > 0 && creditors.length > 0) {
+      const debtor = debtors[0];
+      const creditor = creditors[0];
+      const amount = Math.min(-debtor.amount, creditor.amount);
+
+      transactions.push({ from: debtor.uid, to: creditor.uid, amount });
+
+      debtor.amount += amount;
+      creditor.amount -= amount;
+
+      if(Math.abs(debtor.amount) < 0.01) debtors.shift();
+      if(Math.abs(creditor.amount) < 0.01) creditors.shift();
     }
+    
+    const owesList = transactions
+      .filter(t => t.from === user.id)
+      .map(t => ({ name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
 
+    const owedList = transactions
+      .filter(t => t.to === user.id)
+      .map(t => ({ name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
+      
     return { owes: owesList, owed: owedList };
 
   }, [expenses, members, user]);
