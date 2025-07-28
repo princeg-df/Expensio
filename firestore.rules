@@ -3,27 +3,35 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      // Any authenticated user can create a user document, IF it's a placeholder.
-      // This is for the "invite to group" feature.
-      allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
+    function isAdmin() {
+      return request.auth.token.email == 'princegupta619@gmail.com';
+    }
 
-      // Users can only read their own document. But can list all users to invite.
+    match /users/{userId} {
+      // Allow authenticated users to list documents, needed for inviting users
       allow list: if request.auth != null;
-      allow read, update, delete: if request.auth.uid == userId;
-      
-      // Allow full access to subcollections for the owner
-      match /{collection}/{docId} {
-        allow read, write, delete: if request.auth.uid == userId;
+      // Allow users to read their own document OR if the user is an admin
+      allow read: if request.auth.uid == userId || isAdmin();
+      // Allow authenticated users to create placeholder users
+      allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
+      // Allow users to update or delete their own document OR if the user is an admin
+      allow update: if request.auth.uid == userId || isAdmin();
+      allow delete: if request.auth.uid == userId || isAdmin();
+
+      // Admin can read/write any sub-collection data. Users can only access their own.
+      match /{document=**} {
+        allow read, write: if request.auth.uid == userId || isAdmin();
       }
     }
     
     match /groups/{groupId} {
-      allow read, update: if resource.data.members.hasAny([request.auth.uid]);
       allow create: if request.auth != null;
-
+      // Only group members can read group data or update the members list (to leave)
+      allow read, update: if request.auth.uid in resource.data.members;
+      
+      // Only members can access expenses
       match /expenses/{expenseId} {
-        allow read, create: if get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+         allow read, write: if get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
       }
     }
   }
