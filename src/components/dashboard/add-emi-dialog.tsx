@@ -99,9 +99,8 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
             {existingEmi ? 'Update the details of your ongoing EMI.' : 'Enter the details of your ongoing EMI.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form id="emi-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-1">
             <FormField
               control={form.control}
               name="name"
@@ -222,12 +221,11 @@ export function AddEmiDialog({ onAddOrUpdateEmi, existingEmi, open, onOpenChange
                 </FormItem>
               )}
             />
-            <DialogFooter className="sticky bottom-0 bg-background py-4">
-              <Button type="submit">{existingEmi ? 'Save Changes' : 'Add EMI'}</Button>
-            </DialogFooter>
           </form>
         </Form>
-        </div>
+        <DialogFooter>
+          <Button type="submit" form="emi-form">{existingEmi ? 'Save Changes' : 'Add EMI'}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

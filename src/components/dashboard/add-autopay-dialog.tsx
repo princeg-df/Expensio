@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -105,9 +106,8 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
             {existingAutopay ? 'Update the details of your autopay.' : 'For recurring payments like subscriptions, SIPs, etc.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form id="autopay-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-1">
             <FormField
               control={form.control}
               name="name"
@@ -248,12 +248,11 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
                 </FormItem>
               )}
             />
-            <DialogFooter className="sticky bottom-0 bg-background py-4">
-              <Button type="submit">{existingAutopay ? 'Save Changes' : 'Add Autopay'}</Button>
-            </DialogFooter>
           </form>
         </Form>
-        </div>
+        <DialogFooter>
+          <Button type="submit" form="autopay-form">{existingAutopay ? 'Save Changes' : 'Add Autopay'}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

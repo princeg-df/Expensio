@@ -68,9 +68,8 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
             Enter the details of the expense and how it should be split.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form id="expense-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-1">
             <FormField
               control={form.control}
               name="description"
@@ -146,7 +145,7 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
                                     checked={field.value?.includes(item.id)}
                                     onCheckedChange={(checked) => {
                                       return checked
-                                        ? field.onChange([...field.value, item.id])
+                                        ? field.onChange([...(field.value || []), item.id])
                                         : field.onChange(
                                             field.value?.filter(
                                               (value) => value !== item.id
@@ -168,15 +167,14 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
                 </FormItem>
               )}
             />
-             <DialogFooter className="sticky bottom-0 bg-background py-4">
-              <Button type="button" variant="ghost" onClick={handleClose}>
-                Cancel
-              </Button>
-              <Button type="submit">Add Expense</Button>
-            </DialogFooter>
           </form>
         </Form>
-        </div>
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={handleClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="expense-form">Add Expense</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

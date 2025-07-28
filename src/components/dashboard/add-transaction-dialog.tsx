@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -98,9 +99,8 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
             {existingTransaction ? 'Update the details of your transaction.' : 'Enter the details of your income or expense.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto -mx-6 px-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form id="transaction-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 overflow-y-auto px-1">
             <FormField
               control={form.control}
               name="type"
@@ -194,12 +194,11 @@ export function AddTransactionDialog({ onAddOrUpdateTransaction, existingTransac
                 </FormItem>
               )}
             />
-            <DialogFooter className="sticky bottom-0 bg-background py-4">
-              <Button type="submit">{existingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
-            </DialogFooter>
           </form>
         </Form>
-        </div>
+        <DialogFooter>
+          <Button type="submit" form="transaction-form">{existingTransaction ? 'Save Changes' : 'Add Transaction'}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
