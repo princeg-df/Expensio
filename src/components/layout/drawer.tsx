@@ -316,7 +316,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         window.location.reload();
       } catch (error) {
         console.error("Error importing data: ", error);
-        toast({ variant: 'destructive', title: "Import Failed", description: "The file is not a valid JSON backup file." });
+        toast({ variant: "destructive", title: "Import Failed", description: "The file is not a valid JSON backup file." });
       } finally {
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
@@ -332,15 +332,15 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
             <SheetTitle><ExpensioLogo /></SheetTitle>
             <SheetDescription>
                 {userName ? (
-                    <>
-                    <p className="font-semibold text-foreground">{userName}</p>
-                    <p className="text-xs">{user?.email}</p>
-                    </>
+                    <div>
+                        <div className="font-semibold text-foreground">{userName}</div>
+                        <div className="text-xs">{user?.email}</div>
+                    </div>
                 ) : (
-                    <>
-                    <Skeleton className="h-5 w-24" />
-                    <Skeleton className="h-4 w-32 mt-1" />
-                    </>
+                    <div>
+                        <Skeleton className="h-5 w-24" />
+                        <Skeleton className="h-4 w-32 mt-1" />
+                    </div>
                 )}
             </SheetDescription>
           </SheetHeader>
