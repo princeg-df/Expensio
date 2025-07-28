@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
@@ -15,6 +15,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import {
   DropdownMenu,
@@ -39,6 +40,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Link from 'next/link';
 import { ChangePasswordDialog } from './change-password-dialog';
+import { Skeleton } from '../ui/skeleton';
 
 type AppDrawerProps = {
     isOpen: boolean;
@@ -55,7 +57,23 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [userName, setUserName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function fetchUserName() {
+        if (user) {
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                setUserName(userDocSnap.data().name || 'Guest');
+            }
+        }
+    }
+    if(isOpen) {
+        fetchUserName();
+    }
+  }, [user, isOpen]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -312,6 +330,19 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         <SheetContent className="flex flex-col p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle><ExpensioLogo /></SheetTitle>
+            <SheetDescription>
+                {userName ? (
+                    <>
+                    <p className="font-semibold text-foreground">{userName}</p>
+                    <p className="text-xs">{user?.email}</p>
+                    </>
+                ) : (
+                    <>
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-4 w-32 mt-1" />
+                    </>
+                )}
+            </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="flex flex-col gap-2">
