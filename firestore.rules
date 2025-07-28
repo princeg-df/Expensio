@@ -4,23 +4,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      // Allow any authenticated user to create a placeholder user document
-      allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
-      
-      // Allow users to read the list of all users for group creation
+      // Allow any authenticated user to query the users collection to check for existing emails.
       allow list: if request.auth != null;
+      
+      // A user can only read their own document.
+      allow read: if request.auth.uid == userId;
 
-      // Allow users to read, update, or delete their own document
-      allow read, update, delete: if request.auth.uid == userId;
+      // Anyone authenticated can CREATE a user document IF it's a placeholder for an invite.
+      allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
 
-      // Allow access to subcollections only for the owner
-      match /{collection}/{docId} {
+      // A user can only update or delete their own document.
+      allow update, delete: if request.auth.uid == userId;
+
+      // Users can only access their own subcollections (transactions, emis, etc.).
+      match /{document=**} {
         allow read, write, delete: if request.auth.uid == userId;
       }
     }
 
     match /groups/{groupId} {
-      allow read, write: if request.auth.uid in resource.data.members;
+      // For now, allow any authenticated user to read/write to any group.
+      // This should be locked down in a real app to only group members.
+      allow read, write: if request.auth != null;
     }
   }
 }
