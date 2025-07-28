@@ -67,9 +67,9 @@ export default function DashboardPage() {
         const emisQuery = query(collection(db, `users/${user.uid}/emis`));
         const emisSnapshot = await getDocs(emisQuery);
         const emisData: Emi[] = [];
-        const batch = writeBatch(db);
+        const emiBatch = writeBatch(db);
         const currentDate = new Date();
-        let hasUpdates = false;
+        let hasEmiUpdates = false;
 
         emisSnapshot.forEach((doc) => {
           let emi = { id: doc.id, ...doc.data() } as Emi;
@@ -78,21 +78,17 @@ export default function DashboardPage() {
           const updates: Partial<Emi> = {};
 
           if (!emi.startDate) {
-            const defaultDate = new Date();
-            defaultDate.setDate(15);
-            updates.startDate = Timestamp.fromDate(defaultDate);
+            updates.startDate = emi.nextPaymentDate || Timestamp.fromDate(new Date());
             needsUpdate = true;
           }
            if (!emi.nextPaymentDate) {
-            const defaultDate = new Date();
-            defaultDate.setDate(15);
-            updates.nextPaymentDate = Timestamp.fromDate(defaultDate);
+            updates.nextPaymentDate = emi.startDate || Timestamp.fromDate(new Date());
             needsUpdate = true;
           }
 
           if (needsUpdate) {
-            batch.update(doc.ref, updates);
-            hasUpdates = true;
+            emiBatch.update(doc.ref, updates);
+            hasEmiUpdates = true;
             emi = { ...emi, ...updates }; 
           }
           
@@ -113,31 +109,45 @@ export default function DashboardPage() {
                 if (newMonthsRemaining > 0) {
                     emi.monthsRemaining = newMonthsRemaining;
                     emi.nextPaymentDate = Timestamp.fromDate(newNextPaymentDate);
-                    batch.update(doc.ref, { 
+                    emiBatch.update(doc.ref, { 
                         monthsRemaining: newMonthsRemaining,
                         nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
                     });
                 } else {
                     emi.monthsRemaining = 0;
-                    batch.update(doc.ref, { monthsRemaining: 0 });
+                    emiBatch.update(doc.ref, { monthsRemaining: 0 });
                 }
-                hasUpdates = true;
+                hasEmiUpdates = true;
             }
           }
           emisData.push(emi);
         });
         
-        if(hasUpdates) {
-            await batch.commit();
+        if(hasEmiUpdates) {
+            await emiBatch.commit();
         }
         setEmis(emisData);
 
         const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
         const autopaysSnapshot = await getDocs(autopaysQuery);
         const autopaysData: Autopay[] = [];
+        const autopayBatch = writeBatch(db);
+        let hasAutopayUpdates = false;
+
         autopaysSnapshot.forEach((doc) => {
-        autopaysData.push({ id: doc.id, ...doc.data() } as Autopay);
+            let autopay = { id: doc.id, ...doc.data() } as Autopay;
+            if (!autopay.startDate) {
+                const updates = { startDate: autopay.nextPaymentDate || Timestamp.fromDate(new Date()) };
+                autopayBatch.update(doc.ref, updates);
+                autopay = { ...autopay, ...updates };
+                hasAutopayUpdates = true;
+            }
+            autopaysData.push(autopay);
         });
+
+        if (hasAutopayUpdates) {
+            await autopayBatch.commit();
+        }
         setAutopays(autopaysData);
 
         const userDocRef = doc(db, `users/${user.uid}`);
@@ -220,10 +230,11 @@ export default function DashboardPage() {
     setIsAddEmiOpen(false);
   };
   
-  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'nextPaymentDate'> & { nextPaymentDate: Date }, id?: string) => {
+  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
     if (!user) return;
     const autopayData = {
       ...data,
+      startDate: Timestamp.fromDate(data.startDate),
       nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate),
       amount: Number(data.amount),
     };
@@ -267,7 +278,7 @@ export default function DashboardPage() {
     }, 0);
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
-        if (autopay.nextPaymentDate && !isAfter(autopay.nextPaymentDate.toDate(), interval.end)) {
+        if (autopay.startDate && !isAfter(autopay.startDate.toDate(), interval.end)) {
             let monthlyAmount = 0;
             switch (autopay.frequency) {
                 case 'Monthly':

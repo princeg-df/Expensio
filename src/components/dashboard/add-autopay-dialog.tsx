@@ -40,6 +40,9 @@ import type { Autopay } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(1, 'Please enter a name for the autopay.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0.'),
+  startDate: z.date({
+    required_error: "A start date is required.",
+  }),
   nextPaymentDate: z.date({
     required_error: "A payment day is required.",
   }),
@@ -62,6 +65,7 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     defaultValues: {
       name: '',
       amount: 0,
+      startDate: new Date(),
       nextPaymentDate: new Date(),
       category: 'Subscription',
       frequency: 'Monthly',
@@ -72,12 +76,14 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
     if (open && existingAutopay) {
       form.reset({
         ...existingAutopay,
+        startDate: existingAutopay.startDate ? existingAutopay.startDate.toDate() : new Date(),
         nextPaymentDate: existingAutopay.nextPaymentDate ? existingAutopay.nextPaymentDate.toDate() : new Date(),
       });
     } else if (!open) {
         form.reset({
             name: '',
             amount: 0,
+            startDate: new Date(),
             nextPaymentDate: new Date(),
             category: 'Subscription',
             frequency: 'Monthly',
@@ -173,12 +179,46 @@ export function AddAutopayDialog({ onAddOrUpdateAutopay, existingAutopay, open, 
                 </FormItem>
               )}
             />
+             <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Start Date</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="nextPaymentDate"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>{existingAutopay ? 'Next Payment Day' : 'First Payment Date'}</FormLabel>
+                  <FormLabel>Next Payment Day</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>

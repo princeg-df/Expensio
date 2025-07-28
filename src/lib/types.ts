@@ -22,6 +22,7 @@ export type Autopay = {
   id: string;
   name: string;
   amount: number;
+  startDate: Timestamp;
   nextPaymentDate: Timestamp;
   category: 'Subscription' | 'Investment' | 'Insurance' | 'Other';
   frequency: 'Monthly' | 'Quarterly' | 'Half-Yearly' | 'Yearly';

@@ -58,7 +58,7 @@ export default function ReportsPage() {
     const allDates = [
       ...transactions.filter(t => t.date).map(t => t.date.toDate()),
       ...emis.filter(e => e.startDate).map(e => e.startDate.toDate()),
-      ...autopays.filter(a => a.nextPaymentDate).map(a => a.nextPaymentDate.toDate())
+      ...autopays.filter(a => a.startDate).map(a => a.startDate.toDate())
     ].filter(Boolean);
 
     if (allDates.length === 0) return [new Date().getFullYear().toString()];
@@ -143,9 +143,11 @@ export default function ReportsPage() {
     
     emis.forEach(emi => {
         if (!emi.startDate || emi.monthsRemaining <= 0 || isAfter(emi.startDate.toDate(), interval.end)) return;
-        let paymentDate = emi.startDate.toDate();
-        const loanEndDate = addMonths(emi.startDate.toDate(), emi.monthsRemaining);
+        
+        const startDate = emi.startDate.toDate();
+        const loanEndDate = addMonths(startDate, emi.monthsRemaining);
 
+        let paymentDate = startDate;
         while(isBefore(paymentDate, loanEndDate)) {
              if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
                 events.push({
@@ -164,80 +166,48 @@ export default function ReportsPage() {
     });
     
     autopays.forEach(autopay => {
-        if (!autopay.nextPaymentDate || isAfter(autopay.nextPaymentDate.toDate(), interval.end)) return;
+      if (!autopay.startDate || isAfter(autopay.startDate.toDate(), interval.end)) return;
 
-        let monthIncrement = 1;
-        switch (autopay.frequency) {
-            case 'Quarterly': monthIncrement = 3; break;
-            case 'Half-Yearly': monthIncrement = 6; break;
-            case 'Yearly': monthIncrement = 12; break;
-        }
+      let monthIncrement = 1;
+      switch (autopay.frequency) {
+          case 'Quarterly': monthIncrement = 3; break;
+          case 'Half-Yearly': monthIncrement = 6; break;
+          case 'Yearly': monthIncrement = 12; break;
+      }
+      
+      let paymentDate = autopay.startDate.toDate();
+      while(isBefore(paymentDate, interval.start)) {
+        paymentDate = addMonths(paymentDate, monthIncrement);
+      }
 
-        let paymentDate = autopay.nextPaymentDate.toDate();
-        while (getMonth(paymentDate) > month || getYear(paymentDate) > year) {
-             paymentDate = addMonths(paymentDate, -monthIncrement);
-        }
-        
-        while (isBefore(paymentDate, interval.end)) {
-             if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
-                events.push({
-                    date: paymentDate,
-                    description: autopay.name,
-                    amount: autopay.amount,
-                    type: 'fixed',
-                    category: autopay.category,
-                    icon: categoryIcons[autopay.category] || Receipt,
-                });
-                break;
-             }
-             const nextDate = addMonths(paymentDate, monthIncrement);
-             if (isAfter(nextDate, paymentDate)) {
-                 paymentDate = nextDate;
-             } else {
-                 break;
-             }
-        }
+      if (isWithinInterval(paymentDate, interval)) {
+        events.push({
+            date: paymentDate,
+            description: autopay.name,
+            amount: autopay.amount,
+            type: 'fixed',
+            category: autopay.category,
+            icon: categoryIcons[autopay.category] || Receipt,
+        });
+      }
     });
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    const variableExpenses = transactions
-      .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const emisAmount = emis.reduce((sum, emi) => {
-        if (emi.monthsRemaining > 0 && emi.startDate && !isAfter(emi.startDate.toDate(), interval.end)) {
-            return sum + emi.amount;
-        }
-        return sum;
-    }, 0);
     
-    const autopaysAmount = autopays.reduce((sum, autopay) => {
-        if (autopay.nextPaymentDate && !isAfter(autopay.nextPaymentDate.toDate(), interval.end)) {
-            let monthlyAmount = 0;
-            switch (autopay.frequency) {
-                case 'Monthly': monthlyAmount = autopay.amount; break;
-                case 'Quarterly': monthlyAmount = autopay.amount / 3; break;
-                case 'Half-Yearly': monthlyAmount = autopay.amount / 6; break;
-                case 'Yearly': monthlyAmount = autopay.amount / 12; break;
-            }
-            return sum + monthlyAmount;
-        }
-        return sum;
-    }, 0);
-    
-    const totalMonthlyExpenses = variableExpenses + emisAmount + autopaysAmount;
-
     const income = events
       .filter((e) => e.type === 'income')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const monthlyExpenses = events
+      .filter(e => e.type === 'expense' || e.type === 'fixed')
       .reduce((sum, e) => sum + e.amount, 0);
 
     return {
       monthlyEvents: events,
       totalIncome: income,
-      totalExpenses: totalMonthlyExpenses,
-      netFlow: income - totalMonthlyExpenses,
-      remainingAmount: budget - totalMonthlyExpenses,
+      totalExpenses: monthlyExpenses,
+      netFlow: income - monthlyExpenses,
+      remainingAmount: budget - monthlyExpenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear, budget]);
 
@@ -290,9 +260,6 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
-           <CardDescription className="p-0 pt-2 text-sm text-muted-foreground">
-            This list shows actual transactions scheduled for this month. The summary cards above reflect your average monthly cost.
-          </CardDescription>
         </CardHeader>
         <CardContent>
            <Table>
@@ -355,5 +322,3 @@ export default function ReportsPage() {
   );
 
 }
-
-    

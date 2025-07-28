@@ -135,8 +135,8 @@ export default function UserDetailPage() {
     fetchData();
   };
   
-  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'nextPaymentDate'> & { nextPaymentDate: Date }, id?: string) => {
-    const autopayData = { ...data, nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate), amount: Number(data.amount) };
+  const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
+    const autopayData = { ...data, startDate: Timestamp.fromDate(data.startDate), nextPaymentDate: Timestamp.fromDate(data.nextPaymentDate), amount: Number(data.amount) };
     const path = `users/${userId}/autopays`;
     if (id) {
       await updateDoc(doc(db, path, id), autopayData);
