@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, collection, getDocs, addDoc, Timestamp, query, where, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, Timestamp, query, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Group, AppUser, GroupExpense } from '@/lib/types';
 import { useAuth } from '@/providers/app-provider';
@@ -14,6 +14,8 @@ import { Loader } from '@/components/ui/loader';
 import Link from 'next/link';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+
 
 import { MembersList } from '@/components/splitease/members-list';
 import { AddExpenseDialog } from '@/components/splitease/add-expense-dialog';
@@ -31,7 +33,11 @@ export default function GroupDetailPage() {
   const [members, setMembers] = useState<AppUser[]>([]);
   const [expenses, setExpenses] = useState<GroupExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<GroupExpense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<GroupExpense | null>(null);
+
 
   useEffect(() => {
     if (!user || !groupId) return;
@@ -81,13 +87,13 @@ export default function GroupDetailPage() {
 
   }, [user, groupId, router]);
 
-  const handleAddExpense = async (data: any) => {
+  const handleAddOrUpdateExpense = async (data: any, expenseId?: string) => {
     if (!user || !group) return;
 
     const { description, amount, paidBy, splitWith } = data;
     const splitAmount = amount / splitWith.length;
 
-    const expenseData: Omit<GroupExpense, 'id'> = {
+    const expenseData = {
       groupId,
       description,
       amount,
@@ -97,14 +103,35 @@ export default function GroupDetailPage() {
     };
     
     try {
-        await addDoc(collection(db, 'groups', groupId, 'expenses'), expenseData);
-        toast({ title: 'Success', description: 'Expense added successfully.' });
+        if (expenseId) {
+            const expenseDocRef = doc(db, 'groups', groupId, 'expenses', expenseId);
+            await updateDoc(expenseDocRef, expenseData);
+            toast({ title: 'Success', description: 'Expense updated successfully.' });
+        } else {
+            await addDoc(collection(db, 'groups', groupId, 'expenses'), expenseData);
+            toast({ title: 'Success', description: 'Expense added successfully.' });
+        }
         setIsAddExpenseOpen(false);
+        setEditingExpense(null);
     } catch (error) {
-        console.error('Error adding expense:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to add expense.' });
+        console.error('Error adding/updating expense:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save expense.' });
     }
   };
+
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete) return;
+
+    try {
+        const expenseDocRef = doc(db, 'groups', groupId, 'expenses', expenseToDelete.id);
+        await deleteDoc(expenseDocRef);
+        toast({ title: 'Success', description: 'Expense deleted successfully.' });
+        setExpenseToDelete(null);
+    } catch (error) {
+        console.error('Error deleting expense:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete expense.' });
+    }
+  }
   
   const { owes, owed } = useMemo(() => {
     if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
@@ -232,18 +259,47 @@ export default function GroupDetailPage() {
                     <CardDescription>All expenses for this group.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <ExpenseList expenses={expenses} members={members} />
+                    <ExpenseList 
+                        expenses={expenses} 
+                        members={members} 
+                        onEdit={(expense) => {
+                            setEditingExpense(expense);
+                            setIsAddExpenseOpen(true);
+                        }}
+                        onDelete={(expense) => setExpenseToDelete(expense)}
+                    />
                 </CardContent>
             </Card>
         </div>
       </div>
     </div>
      <AddExpenseDialog
-        isOpen={isAddExpenseOpen}
-        onOpenChange={setIsAddExpenseOpen}
-        onAddExpense={handleAddExpense}
+        isOpen={isAddExpenseOpen || !!editingExpense}
+        onOpenChange={(open) => {
+            if(!open) {
+                setIsAddExpenseOpen(false);
+                setEditingExpense(null);
+            }
+        }}
+        onAddOrUpdateExpense={handleAddOrUpdateExpense}
         members={members}
+        existingExpense={editingExpense}
       />
+
+    <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the expense: <span className="font-bold">{expenseToDelete?.description}</span>. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

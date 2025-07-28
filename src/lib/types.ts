@@ -1,5 +1,6 @@
 
 import type { Timestamp } from 'firebase/firestore';
+import { User } from 'firebase/auth';
 
 export type Transaction = {
   id: string;
@@ -42,6 +43,7 @@ export type AppUser = {
   name: string;
   mobileNumber?: string;
   isPlaceholder?: boolean;
+  user?: User;
 };
 
 

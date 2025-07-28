@@ -1,11 +1,12 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/providers/app-provider';
-import type { AppUser } from '@/lib/types';
+import type { AppUser, GroupExpense } from '@/lib/types';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,45 +28,51 @@ const expenseFormSchema = z.object({
 type AddExpenseDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onAddExpense: (data: z.infer<typeof expenseFormSchema>) => Promise<void>;
+  onAddOrUpdateExpense: (data: z.infer<typeof expenseFormSchema>, expenseId?: string) => Promise<void>;
   members: AppUser[];
+  existingExpense: GroupExpense | null;
 };
 
-export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }: AddExpenseDialogProps) {
+export function AddExpenseDialog({ isOpen, onOpenChange, onAddOrUpdateExpense, members, existingExpense }: AddExpenseDialogProps) {
   const { user } = useAuth();
   
   const form = useForm<z.infer<typeof expenseFormSchema>>({
     resolver: zodResolver(expenseFormSchema),
-    defaultValues: {
-      description: '',
-      amount: 0,
-      paidBy: user?.uid || '',
-      splitWith: members.map(m => m.id),
-    },
   });
 
+  useEffect(() => {
+    if (isOpen && existingExpense) {
+        form.reset({
+            description: existingExpense.description,
+            amount: existingExpense.amount,
+            paidBy: existingExpense.paidBy,
+            splitWith: existingExpense.splitWith.map(s => s.uid),
+        });
+    } else if (isOpen) {
+        form.reset({
+            description: '',
+            amount: 0,
+            paidBy: user?.uid || '',
+            splitWith: members.map(m => m.id),
+        });
+    }
+  }, [isOpen, existingExpense, form, user, members]);
+
   const handleClose = () => {
-    form.reset({
-      description: '',
-      amount: 0,
-      paidBy: user?.uid || '',
-      splitWith: members.map(m => m.id),
-    });
     onOpenChange(false);
   };
 
   async function onSubmit(values: z.infer<typeof expenseFormSchema>) {
-    await onAddExpense(values);
-    handleClose();
+    await onAddOrUpdateExpense(values, existingExpense?.id);
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add an Expense</DialogTitle>
+          <DialogTitle>{existingExpense ? 'Edit' : 'Add'} Expense</DialogTitle>
           <DialogDescription>
-            Enter the details of the expense and how it should be split.
+            {existingExpense ? 'Update the details of the expense.' : 'Enter the details of the expense and how it should be split.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -173,7 +180,7 @@ export function AddExpenseDialog({ isOpen, onOpenChange, onAddExpense, members }
           <Button type="button" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" form="expense-form">Add Expense</Button>
+          <Button type="submit" form="expense-form">{existingExpense ? 'Save Changes' : 'Add Expense'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
