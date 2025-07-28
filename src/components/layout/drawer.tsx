@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -280,7 +280,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         if (data.autopays && Array.isArray(data.autopays)) {
           data.autopays.forEach((a: any) => {
             const docRef = doc(collection(db, `users/${user.uid}/autopays`));
-            const autopayData = { ...a, nextPaymentDate: Timestamp.fromDate(new Date(a.nextPaymentDate)) };
+            const autopayData = { ...a, startDate: Timestamp.fromDate(new Date(a.startDate)), nextPaymentDate: Timestamp.fromDate(new Date(a.nextPaymentDate)) };
             delete autopayData.id;
             batch.set(docRef, autopayData);
           });
@@ -323,6 +323,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <Link href="/reports" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/reports' ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <LineChart className="mr-2 h-4 w-4" /> Reports
+                </Button>
+              </Link>
+              <Link href="/splitease" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/splitease' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <Users className="mr-2 h-4 w-4" /> SplitEase
                 </Button>
               </Link>
                {user?.email === ADMIN_EMAIL && (
@@ -392,5 +397,3 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
-
-    

@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type Transaction = {
@@ -19,7 +20,7 @@ export type Emi = {
 }
 
 export type Autopay = {
-  id: string;
+  id:string;
   name: string;
   amount: number;
   startDate: Timestamp;
@@ -32,4 +33,23 @@ export type Category = {
   value: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
+};
+
+// Types for SplitEase Feature
+export type Group = {
+  id: string;
+  name: string;
+  members: string[]; // Array of user UIDs
+  createdAt: Timestamp;
+  createdBy: string; // UID of the user who created the group
+};
+
+export type GroupExpense = {
+  id: string;
+  groupId: string;
+  description: string;
+  amount: number;
+  paidBy: string; // UID of the user who paid
+  splitWith: { uid: string; amount: number }[]; // Array of objects with UID and their share
+  date: Timestamp;
 };
