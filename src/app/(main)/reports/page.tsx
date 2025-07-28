@@ -8,7 +8,7 @@ import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore, getMonth, isAfter } from 'date-fns';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -143,10 +143,10 @@ export default function ReportsPage() {
     });
     
     emis.forEach(emi => {
-        if (!emi.startDate || emi.monthsRemaining <= 0) return;
+        if (!emi.startDate || emi.monthsRemaining <= 0 || isAfter(emi.startDate.toDate(), interval.end)) return;
         
         let paymentDate = emi.startDate.toDate();
-        // Ensure the initial payment date isn't in the future relative to the start of the loan
+
         while(isBefore(paymentDate, emi.startDate.toDate())) {
           paymentDate = addMonths(paymentDate, 1);
         }
@@ -163,14 +163,15 @@ export default function ReportsPage() {
                    category: 'EMI',
                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-                break; // Found the payment for this month
+                break;
             }
+            if (isAfter(paymentDate, interval.end)) break;
             paymentDate = addMonths(paymentDate, 1);
         }
     });
     
     autopays.forEach(autopay => {
-        if (!autopay.nextPaymentDate) return;
+        if (!autopay.nextPaymentDate || isAfter(autopay.nextPaymentDate.toDate(), interval.end)) return;
 
         let monthIncrement = 1;
         switch (autopay.frequency) {
@@ -181,14 +182,10 @@ export default function ReportsPage() {
 
         let paymentDate = autopay.nextPaymentDate.toDate();
 
-        // Go back in time to find a payment date that could be a basis for this month's check
-        while (isAfter(paymentDate, interval.start)) {
-             const prevDate = addMonths(paymentDate, -monthIncrement);
-             if(getYear(prevDate) < year - 2) break; // Optimization
-             paymentDate = prevDate;
+        while (isAfter(paymentDate, interval.start) && getYear(paymentDate) > year - 2) {
+             paymentDate = addMonths(paymentDate, -monthIncrement);
         }
-
-        // Go forward and check for payments within the interval
+        
         while (isBefore(paymentDate, interval.end)) {
              if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
                 events.push({
@@ -202,6 +199,7 @@ export default function ReportsPage() {
                 break;
              }
             paymentDate = addMonths(paymentDate, monthIncrement);
+             if(isAfter(paymentDate, interval.end)) break;
         }
     });
 
@@ -214,14 +212,14 @@ export default function ReportsPage() {
       .reduce((sum, t) => sum + t.amount, 0);
 
     const emisAmount = emis.reduce((sum, emi) => {
-        if (emi.monthsRemaining > 0 && emi.startDate && isBefore(emi.startDate.toDate(), interval.end)) {
+        if (emi.monthsRemaining > 0 && emi.startDate && !isAfter(emi.startDate.toDate(), interval.end)) {
             return sum + emi.amount;
         }
         return sum;
     }, 0);
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
-        if (autopay.nextPaymentDate && isBefore(autopay.nextPaymentDate.toDate(), interval.end)) {
+        if (autopay.nextPaymentDate && !isAfter(autopay.nextPaymentDate.toDate(), interval.end)) {
             let monthlyAmount = 0;
             switch (autopay.frequency) {
                 case 'Monthly':
@@ -306,7 +304,9 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
-          <CardContent className="p-0 pt-2 text-sm text-muted-foreground">This list shows actual transactions scheduled for this month. The summary cards above reflect your average monthly cost.</CardContent>
+          <CardDescription className="p-0 pt-2 text-sm text-muted-foreground">
+            This list shows actual transactions scheduled for this month. The summary cards above reflect your average monthly cost.
+          </CardDescription>
         </CardHeader>
         <CardContent>
            <Table>

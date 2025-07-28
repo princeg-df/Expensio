@@ -7,7 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { addMonths } from 'date-fns';
+import { addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -247,13 +247,16 @@ export default function DashboardPage() {
     setDeletionInfo({ id, type });
   };
   
-  const { totalIncome, totalExpenses, totalFixedPayments, remainingAmount, netFlow } = useMemo(() => {
+  const { totalIncome, totalExpenses, remainingAmount, netFlow } = useMemo(() => {
+    const now = new Date();
+    const interval = { start: startOfMonth(now), end: endOfMonth(now) };
+
     const incomeFromTransactions = transactions
-      .filter((t) => t.type === 'income')
+      .filter((t) => t.type === 'income' && t.date && isWithinInterval(t.date.toDate(), interval))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const expensesFromTransactions = transactions
-      .filter((t) => t.type === 'expense')
+      .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const emisAmount = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
@@ -277,14 +280,11 @@ export default function DashboardPage() {
         return sum + monthlyAmount;
     }, 0);
     
-    const fixed = emisAmount + autopaysAmount;
-    
-    const totalExp = expensesFromTransactions + fixed;
+    const totalExp = expensesFromTransactions + emisAmount + autopaysAmount;
 
     return { 
       totalIncome: incomeFromTransactions, 
       totalExpenses: totalExp,
-      totalFixedPayments: fixed,
       remainingAmount: budget - totalExp,
       netFlow: incomeFromTransactions - totalExp,
     };
@@ -446,5 +446,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
