@@ -134,7 +134,7 @@ export default function GroupDetailPage() {
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || !members.length) return { owes: [], owed: [] };
+    if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
 
     const balances: { [uid: string]: number } = {};
     members.forEach(m => { balances[m.id] = 0; });
@@ -148,11 +148,11 @@ export default function GroupDetailPage() {
 
     const debtors = Object.entries(balances)
       .filter(([, amount]) => amount < 0)
-      .map(([uid, amount]) => ({ uid, amount }));
+      .map(([uid, amount]) => ({ uid, amount: amount }));
 
     const creditors = Object.entries(balances)
       .filter(([, amount]) => amount > 0)
-      .map(([uid, amount]) => ({ uid, amount }));
+      .map(([uid, amount]) => ({ uid, amount: amount }));
     
     const transactions = [];
 
