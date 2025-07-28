@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SummaryCard } from '@/components/dashboard/summary-card';
-import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase } from 'lucide-react';
+import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, CircleDollarSign } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { cn } from '@/lib/utils';
 
@@ -48,6 +48,7 @@ export default function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
+  const [budget, setBudget] = useState(0);
   const [loading, setLoading] = useState(true);
   
   const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth()));
@@ -83,6 +84,12 @@ export default function ReportsPage() {
     if (!user) return;
     setLoading(true);
     try {
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+        setBudget(userDocSnap.data().budget || 0);
+      }
+      
       const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
       const transactionsSnapshot = await getDocs(transactionsQuery);
       setTransactions(transactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
@@ -117,6 +124,9 @@ export default function ReportsPage() {
     const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
     let events: FinancialEvent[] = [];
+    let calculatedExpenses = 0;
+    let calculatedIncome = 0;
+
 
     // Filter transactions for the selected month
     transactions.forEach(t => {
@@ -137,29 +147,28 @@ export default function ReportsPage() {
     
     // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
-      if (!emi.startDate) return;
-      
-      const loanStartDate = emi.startDate.toDate();
-      const totalMonths = (emi.loanAmount / emi.amount); // This might not be perfect but gives an idea of original tenure
-      const originalTenureMonths = emi.monthsRemaining + differenceInMonths(new Date(), loanStartDate)
-      const emiEndDate = addMonths(loanStartDate, originalTenureMonths);
+        if (!emi.startDate || !emi.nextPaymentDate) return;
+        
+        let paymentDate = emi.startDate.toDate();
+        const emiEndDate = addMonths(paymentDate, emi.monthsRemaining + differenceInMonths(new Date(), paymentDate));
 
-      let paymentDate = loanStartDate;
-      while(isBefore(paymentDate, emiEndDate)) {
-        if (getYear(paymentDate) > year + 1) break; 
-        if (isWithinInterval(paymentDate, interval)) {
-            events.push({
-              date: paymentDate,
-              description: emi.name,
-              amount: emi.amount,
-              type: 'fixed',
-              category: 'EMI',
-              icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-            });
-            break; 
+        while(isBefore(paymentDate, emiEndDate)) {
+            if (getYear(paymentDate) > year + 1) break; 
+            if (isWithinInterval(paymentDate, interval)) {
+                if (emi.monthsRemaining > 0) {
+                    events.push({
+                    date: paymentDate,
+                    description: emi.name,
+                    amount: emi.amount,
+                    type: 'fixed',
+                    category: 'EMI',
+                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
+                    });
+                }
+                break; 
+            }
+            paymentDate = addMonths(paymentDate, 1);
         }
-        paymentDate = addMonths(paymentDate, 1);
-      }
     });
     
     // Calculate recurring Autopay payments for the selected month
@@ -173,12 +182,10 @@ export default function ReportsPage() {
 
         let paymentDate = autopay.nextPaymentDate.toDate();
 
-        // Rewind to find a payment date that could be in or before the interval
         while (isAfter(paymentDate, interval.end)) {
           paymentDate = addMonths(paymentDate, -monthIncrement);
         }
 
-        // Fast-forward to find payments within the interval
         while (isBefore(paymentDate, interval.start)) {
           paymentDate = addMonths(paymentDate, monthIncrement);
         }
@@ -197,14 +204,17 @@ export default function ReportsPage() {
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    const income = events.filter(e => e.type === 'income').reduce((sum, e) => sum + e.amount, 0);
-    const expenses = events.filter(e => e.type === 'expense' || e.type === 'fixed').reduce((sum, e) => sum + e.amount, 0);
+    calculatedIncome = events.filter(e => e.type === 'income').reduce((sum, e) => sum + e.amount, 0);
+    const variableExpenses = events.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
+    const fixedExpensesIncurred = events.filter(e => e.type === 'fixed').reduce((sum, e) => sum + e.amount, 0);
+    
+    calculatedExpenses = variableExpenses + fixedExpensesIncurred;
 
     return {
       monthlyEvents: events,
-      totalIncome: income,
-      totalExpenses: expenses,
-      netFlow: income - expenses,
+      totalIncome: calculatedIncome,
+      totalExpenses: calculatedExpenses,
+      netFlow: calculatedIncome - calculatedExpenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear]);
 
@@ -248,9 +258,9 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <SummaryCard icon={HandCoins} title="Total Income" value={totalIncome} />
+        <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
         <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
+        <SummaryCard icon={PiggyBank} title="Net Flow" value={totalIncome - totalExpenses} />
       </div>
 
       <Card>
@@ -317,5 +327,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
-    
