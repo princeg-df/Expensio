@@ -260,14 +260,19 @@ export default function DashboardPage() {
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
         let monthlyAmount = 0;
-        if (autopay.frequency === 'Monthly') {
-            monthlyAmount = autopay.amount;
-        } else if (autopay.frequency === 'Quarterly') {
-            monthlyAmount = autopay.amount / 3;
-        } else if (autopay.frequency === 'Half-Yearly') {
-            monthlyAmount = autopay.amount / 6;
-        } else if (autopay.frequency === 'Yearly') {
-            monthlyAmount = autopay.amount / 12;
+        switch (autopay.frequency) {
+            case 'Monthly':
+                monthlyAmount = autopay.amount;
+                break;
+            case 'Quarterly':
+                monthlyAmount = autopay.amount / 3;
+                break;
+            case 'Half-Yearly':
+                monthlyAmount = autopay.amount / 6;
+                break;
+            case 'Yearly':
+                monthlyAmount = autopay.amount / 12;
+                break;
         }
         return sum + monthlyAmount;
     }, 0);
@@ -441,3 +446,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

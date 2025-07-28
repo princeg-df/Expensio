@@ -6,7 +6,7 @@ import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore, isAfter, differenceInMonths } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -124,10 +124,7 @@ export default function ReportsPage() {
     const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
     let events: FinancialEvent[] = [];
-    let calculatedExpenses = 0;
-    let calculatedIncome = 0;
-
-
+    
     // Filter transactions for the selected month
     transactions.forEach(t => {
       if (t.date) {
@@ -147,24 +144,22 @@ export default function ReportsPage() {
     
     // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
-        if (!emi.startDate || !emi.nextPaymentDate) return;
+        if (!emi.startDate || emi.monthsRemaining <= 0) return;
         
         let paymentDate = emi.startDate.toDate();
-        const emiEndDate = addMonths(paymentDate, emi.monthsRemaining + differenceInMonths(new Date(), paymentDate));
+        const emiEndDate = addMonths(paymentDate, emi.monthsRemaining);
 
         while(isBefore(paymentDate, emiEndDate)) {
-            if (getYear(paymentDate) > year + 1) break; 
-            if (isWithinInterval(paymentDate, interval)) {
-                if (emi.monthsRemaining > 0) {
-                    events.push({
-                    date: paymentDate,
-                    description: emi.name,
-                    amount: emi.amount,
-                    type: 'fixed',
-                    category: 'EMI',
-                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
-                    });
-                }
+             if (getYear(paymentDate) > year + 1) break; 
+             if (isWithinInterval(paymentDate, interval)) {
+                events.push({
+                   date: paymentDate,
+                   description: emi.name,
+                   amount: emi.amount,
+                   type: 'fixed',
+                   category: 'EMI',
+                   icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
+                });
                 break; 
             }
             paymentDate = addMonths(paymentDate, 1);
@@ -176,15 +171,13 @@ export default function ReportsPage() {
         if (!autopay.nextPaymentDate) return;
 
         let monthIncrement = 1;
-        if (autopay.frequency === 'Quarterly') monthIncrement = 3;
-        else if (autopay.frequency === 'Half-Yearly') monthIncrement = 6;
-        else if (autopay.frequency === 'Yearly') monthIncrement = 12;
+        switch (autopay.frequency) {
+            case 'Quarterly': monthIncrement = 3; break;
+            case 'Half-Yearly': monthIncrement = 6; break;
+            case 'Yearly': monthIncrement = 12; break;
+        }
 
         let paymentDate = autopay.nextPaymentDate.toDate();
-
-        while (isAfter(paymentDate, interval.end)) {
-          paymentDate = addMonths(paymentDate, -monthIncrement);
-        }
 
         while (isBefore(paymentDate, interval.start)) {
           paymentDate = addMonths(paymentDate, monthIncrement);
@@ -204,17 +197,42 @@ export default function ReportsPage() {
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    calculatedIncome = events.filter(e => e.type === 'income').reduce((sum, e) => sum + e.amount, 0);
-    const variableExpenses = events.filter(e => e.type === 'expense').reduce((sum, e) => sum + e.amount, 0);
-    const fixedExpensesIncurred = events.filter(e => e.type === 'fixed').reduce((sum, e) => sum + e.amount, 0);
-    
-    calculatedExpenses = variableExpenses + fixedExpensesIncurred;
+    const incomeFromTransactions = events
+      .filter((e) => e.type === 'income')
+      .reduce((sum, e) => sum + e.amount, 0);
+
+    const expensesFromTransactions = events
+      .filter((e) => e.type === 'expense')
+      .reduce((sum, e) => sum + e.amount, 0);
+      
+    const expensesFromEmis = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
+
+    const expensesFromAutopays = autopays.reduce((sum, autopay) => {
+        let monthlyAmount = 0;
+        switch (autopay.frequency) {
+            case 'Monthly':
+                monthlyAmount = autopay.amount;
+                break;
+            case 'Quarterly':
+                monthlyAmount = autopay.amount / 3;
+                break;
+            case 'Half-Yearly':
+                monthlyAmount = autopay.amount / 6;
+                break;
+            case 'Yearly':
+                monthlyAmount = autopay.amount / 12;
+                break;
+        }
+        return sum + monthlyAmount;
+    }, 0);
+
+    const calculatedExpenses = expensesFromTransactions + expensesFromEmis + expensesFromAutopays;
 
     return {
       monthlyEvents: events,
-      totalIncome: calculatedIncome,
+      totalIncome: incomeFromTransactions,
       totalExpenses: calculatedExpenses,
-      netFlow: calculatedIncome - calculatedExpenses,
+      netFlow: incomeFromTransactions - calculatedExpenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear]);
 
@@ -258,9 +276,9 @@ export default function ReportsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-3">
-        <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
+        <SummaryCard icon={CircleDollarSign} title="Total Income" value={totalIncome} />
         <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={PiggyBank} title="Net Flow" value={totalIncome - totalExpenses} />
+        <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
 
       <Card>
@@ -327,3 +345,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
