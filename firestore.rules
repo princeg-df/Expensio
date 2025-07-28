@@ -3,31 +3,24 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
     match /users/{userId} {
-      // Allow any authenticated user to list and read user documents (for adding to groups)
-      allow list, read: if request.auth != null;
-      
-      // Allow creating a user doc only if it's a placeholder for an invite
+      // Allow any authenticated user to create a placeholder user document
       allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
       
-      // Only the user themselves can update or delete their own document
-      allow update, delete: if request.auth.uid == userId;
+      // Allow users to read the list of all users for group creation
+      allow list: if request.auth != null;
 
-      // Rules for all subcollections within a user document (transactions, emis, etc.)
-      match /{allPaths=**} {
-        // Only the user who owns the parent document can read or write to its subcollections
-        allow read, write: if request.auth.uid == userId;
+      // Allow users to read, update, or delete their own document
+      allow read, update, delete: if request.auth.uid == userId;
+
+      // Allow access to subcollections only for the owner
+      match /{collection}/{docId} {
+        allow read, write, delete: if request.auth.uid == userId;
       }
     }
-    
-    match /groups/{groupId} {
-       allow read, create: if request.auth != null && request.auth.uid in resource.data.members;
-       allow update: if request.auth != null && request.auth.uid == resource.data.createdBy;
 
-       match /{allPaths=**} {
-        allow read, write: if request.auth != null && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
-      }
+    match /groups/{groupId} {
+      allow read, write: if request.auth.uid in resource.data.members;
     }
   }
 }

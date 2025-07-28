@@ -45,11 +45,7 @@ export type AppUser = {
 
 
 // Types for SplitEase Feature
-export type InvitedMember = {
-  name: string;
-  email: string;
-  mobileNumber: string;
-}
+export type InvitedMember = string; // Just the email now
 
 export type Group = {
   id: string;

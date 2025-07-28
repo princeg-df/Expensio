@@ -10,7 +10,6 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, addDoc, Timestamp, writeBatch, doc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
-import type { InvitedMember } from '@/lib/types';
 
 
 export default function SplitEasePage() {
@@ -18,41 +17,44 @@ export default function SplitEasePage() {
   const { toast } = useToast();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
-  const handleCreateGroup = async (groupName: string, selectedMembers: string[], invitedMembers: InvitedMember[]) => {
+  const handleCreateGroup = async (groupName: string, invitedEmails: string[]) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to create a group.' });
       return;
     }
 
     const batch = writeBatch(db);
+    const memberIds = [user.uid];
 
     try {
-      // Create placeholder user docs for invited members who don't exist
-      for (const invited of invitedMembers) {
-        const userQuery = query(collection(db, 'users'), where('email', '==', invited.email));
+      for (const email of invitedEmails) {
+        const userQuery = query(collection(db, 'users'), where('email', '==', email));
         const userSnapshot = await getDocs(userQuery);
         
         if (userSnapshot.empty) {
+          // User doesn't exist, create a placeholder
           const newUserRef = doc(collection(db, 'users'));
            batch.set(newUserRef, {
-            ...invited,
+            email: email,
+            name: 'Guest',
+            mobileNumber: '9999999999',
             createdAt: Timestamp.now(),
-            isPlaceholder: true, // Flag to identify placeholder accounts
+            isPlaceholder: true,
           });
-          // Add the new user's ID to the members list
-          selectedMembers.push(newUserRef.id);
+          memberIds.push(newUserRef.id);
         } else {
-            // If user already exists, just add their ID to the group
-            selectedMembers.push(userSnapshot.docs[0].id);
+            // User already exists, add their ID
+            const existingUserId = userSnapshot.docs[0].id;
+            if (!memberIds.includes(existingUserId)) {
+              memberIds.push(existingUserId);
+            }
         }
       }
       
-      const allMemberIds = Array.from(new Set([user.uid, ...selectedMembers]));
-
       const groupRef = doc(collection(db, 'groups'));
       batch.set(groupRef, {
         name: groupName,
-        members: allMemberIds,
+        members: memberIds,
         createdAt: Timestamp.now(),
         createdBy: user.uid,
       });
