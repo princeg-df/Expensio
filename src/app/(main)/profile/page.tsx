@@ -19,6 +19,7 @@ import { User as UserIcon } from 'lucide-react';
 
 const profileFormSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
+  mobileNumber: z.string().length(10, 'Mobile number must be 10 digits.'),
 });
 
 type UserProfile = {
@@ -37,6 +38,7 @@ export default function ProfilePage() {
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
       name: '',
+      mobileNumber: '',
     },
   });
 
@@ -50,7 +52,7 @@ export default function ProfilePage() {
         if (userDocSnap.exists()) {
           const userData = userDocSnap.data() as UserProfile;
           setProfile(userData);
-          form.reset({ name: userData.name });
+          form.reset({ name: userData.name, mobileNumber: userData.mobileNumber });
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -70,12 +72,15 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       const userDocRef = doc(db, 'users', user.uid);
-      await updateDoc(userDocRef, { name: values.name });
-      setProfile((prev) => (prev ? { ...prev, name: values.name } : null));
-      toast({ title: 'Success', description: 'Your name has been updated.' });
+      await updateDoc(userDocRef, { 
+        name: values.name,
+        mobileNumber: values.mobileNumber,
+      });
+      setProfile((prev) => (prev ? { ...prev, name: values.name, mobileNumber: values.mobileNumber } : null));
+      toast({ title: 'Success', description: 'Your profile has been updated.' });
     } catch (error) {
       console.error('Error updating profile:', error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update your name.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update your profile.' });
     } finally {
       setLoading(false);
     }
@@ -132,12 +137,19 @@ export default function ProfilePage() {
                   <Input readOnly disabled value={profile?.email || ''} />
                 </FormControl>
               </FormItem>
-              <FormItem>
-                <FormLabel>Mobile Number</FormLabel>
-                <FormControl>
-                  <Input readOnly disabled value={profile?.mobileNumber || ''} />
-                </FormControl>
-              </FormItem>
+               <FormField
+                control={form.control}
+                name="mobileNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile Number</FormLabel>
+                    <FormControl>
+                      <Input type="tel" placeholder="9999999999" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="flex justify-end">
                 <Button type="submit" disabled={loading || form.formState.isSubmitting}>
                   Save Changes
