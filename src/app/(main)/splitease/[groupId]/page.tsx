@@ -1,56 +1,110 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, getDocs, addDoc, Timestamp, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Group } from '@/lib/types';
+import type { Group, AppUser, GroupExpense } from '@/lib/types';
 import { useAuth } from '@/providers/app-provider';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader } from '@/components/ui/loader';
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, PlusCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+import { MembersList } from '@/components/splitease/members-list';
+import { AddExpenseDialog } from '@/components/splitease/add-expense-dialog';
+import { ExpenseList } from '@/components/splitease/expense-list';
 
 export default function GroupDetailPage() {
   const { user, loading: authLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
   const groupId = params.groupId as string;
+  const { toast } = useToast();
+
   const [group, setGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<AppUser[]>([]);
+  const [expenses, setExpenses] = useState<GroupExpense[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
 
   useEffect(() => {
-    async function fetchGroup() {
-      if (!user || !groupId) return;
-      setLoading(true);
-      try {
-        const groupDocRef = doc(db, 'groups', groupId);
-        const groupDocSnap = await getDoc(groupDocRef);
+    if (!user || !groupId) return;
+    setLoading(true);
 
-        if (groupDocSnap.exists()) {
-          const groupData = groupDocSnap.data() as Group;
-          if (groupData.members.includes(user.uid)) {
-            setGroup({ id: groupDocSnap.id, ...groupData });
-          } else {
-             router.push('/splitease');
-          }
+    const groupDocRef = doc(db, 'groups', groupId);
+    
+    const unsubscribeGroup = onSnapshot(groupDocRef, async (docSnap) => {
+        if (docSnap.exists()) {
+            const groupData = docSnap.data() as Group;
+            if (groupData.members.includes(user.uid)) {
+                setGroup({ id: docSnap.id, ...groupData });
+
+                // Fetch member details
+                const memberUsers: AppUser[] = [];
+                for (const memberId of groupData.members) {
+                    const userDocRef = doc(db, 'users', memberId);
+                    const userDocSnap = await getDoc(userDocRef);
+                    if (userDocSnap.exists()) {
+                        memberUsers.push({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
+                    }
+                }
+                setMembers(memberUsers);
+
+            } else {
+                router.push('/splitease');
+            }
         } else {
-           router.push('/splitease');
+            router.push('/splitease');
         }
-      } catch (error) {
-        console.error('Error fetching group:', error);
-      } finally {
         setLoading(false);
-      }
-    }
+    }, (error) => {
+        console.error("Error fetching group details:", error);
+        setLoading(false);
+    });
+    
+    const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'));
+    const unsubscribeExpenses = onSnapshot(expensesQuery, (querySnapshot) => {
+        const groupExpenses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
+        setExpenses(groupExpenses.sort((a, b) => b.date.seconds - a.date.seconds));
+    });
 
-    if (!authLoading) {
-      fetchGroup();
+    return () => {
+        unsubscribeGroup();
+        unsubscribeExpenses();
+    };
+
+  }, [user, groupId, router]);
+
+  const handleAddExpense = async (data: any) => {
+    if (!user || !group) return;
+
+    const { description, amount, paidBy, splitWith } = data;
+    const splitAmount = amount / splitWith.length;
+
+    const expenseData: Omit<GroupExpense, 'id'> = {
+      groupId,
+      description,
+      amount,
+      paidBy,
+      splitWith: splitWith.map((uid: string) => ({ uid, amount: splitAmount })),
+      date: Timestamp.now(),
+    };
+    
+    try {
+        await addDoc(collection(db, 'groups', groupId, 'expenses'), expenseData);
+        toast({ title: 'Success', description: 'Expense added successfully.' });
+        setIsAddExpenseOpen(false);
+    } catch (error) {
+        console.error('Error adding expense:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to add expense.' });
     }
-  }, [user, authLoading, groupId, router]);
+  };
+
 
   if (loading || authLoading) {
     return (
@@ -77,18 +131,56 @@ export default function GroupDetailPage() {
   }
 
   return (
+    <>
     <div className="space-y-8">
-      <div className="flex items-center gap-4">
-        <Button asChild variant="outline" size="icon">
-          <Link href="/splitease">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+            <Button asChild variant="outline" size="icon">
+            <Link href="/splitease">
+                <ArrowLeft className="h-4 w-4" />
+            </Link>
+            </Button>
+            <div>
+            <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
+            <p className="text-muted-foreground">Manage your group expenses and members.</p>
+            </div>
+        </div>
+        <Button onClick={() => setIsAddExpenseOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
-          <p className="text-muted-foreground">Manage your group expenses and members.</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Members</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <MembersList members={members} />
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Expenses</CardTitle>
+                    <CardDescription>All expenses for this group.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <ExpenseList expenses={expenses} members={members} />
+                </CardContent>
+            </Card>
         </div>
       </div>
     </div>
+     <AddExpenseDialog
+        isOpen={isAddExpenseOpen}
+        onOpenChange={setIsAddExpenseOpen}
+        onAddExpense={handleAddExpense}
+        members={members}
+      />
+    </>
   );
 }

@@ -1,29 +1,30 @@
 
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      // Allow any authenticated user to create a placeholder user for invites
+      // Any authenticated user can create a user document, IF it's a placeholder.
+      // This is for the "invite to group" feature.
       allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
-      // Allow users to read their own data, or admins to read any user data
-      allow read: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'princegupta619@gmail.com';
-       // Allow any authenticated user to see the list of users for group invites
-      allow list: if request.auth != null;
-      // Allow users to update or delete their own document
-      allow update, delete: if request.auth.uid == userId;
 
-      match /{document=**} {
-        allow read, write: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'princegupta619@gmail.com';
+      // Users can only read their own document. But can list all users to invite.
+      allow list: if request.auth != null;
+      allow read, update, delete: if request.auth.uid == userId;
+      
+      // Allow full access to subcollections for the owner
+      match /{collection}/{docId} {
+        allow read, write, delete: if request.auth.uid == userId;
       }
     }
     
     match /groups/{groupId} {
       allow read, update: if resource.data.members.hasAny([request.auth.uid]);
       allow create: if request.auth != null;
-      // Allow leaving a group
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
-                      request.resource.data.members.size() == resource.data.members.size() - 1 &&
-                      !request.resource.data.members.hasAny([request.auth.uid]);
+
+      match /expenses/{expenseId} {
+        allow read, create: if get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+      }
     }
   }
 }

@@ -39,8 +39,9 @@ export type Category = {
 export type AppUser = {
   id: string;
   email: string;
-  name?: string;
+  name: string;
   mobileNumber?: string;
+  isPlaceholder?: boolean;
 };
 
 
@@ -51,7 +52,6 @@ export type Group = {
   id: string;
   name: string;
   members: string[]; // Array of user UIDs
-  invitedMembers?: InvitedMember[]; // Array of invited user details
   createdAt: Timestamp;
   createdBy: string; // UID of the user who created the group
 };
