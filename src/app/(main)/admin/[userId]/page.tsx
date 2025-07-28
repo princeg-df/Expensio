@@ -2,7 +2,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, query, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, writeBatch, Timestamp, setDoc } from 'firebase/firestore';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import { collection, query, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import Link from 'next/link';
@@ -14,7 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader } from '@/components/ui/loader';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ArrowLeft, ShieldAlert, CircleDollarSign, PlusCircle, Repeat } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, CircleDollarSign, PlusCircle, Repeat, User as UserIcon } from 'lucide-react';
 import { TransactionTable } from '@/components/dashboard/transaction-table';
 import { EmiTable } from '@/components/dashboard/emi-table';
 import { AutopayTable } from '@/components/dashboard/autopay-table';
@@ -22,7 +25,8 @@ import { SummaryCard } from '@/components/dashboard/summary-card';
 import { AddTransactionDialog } from '@/components/dashboard/add-transaction-dialog';
 import { AddEmiDialog } from '@/components/dashboard/add-emi-dialog';
 import { AddAutopayDialog } from '@/components/dashboard/add-autopay-dialog';
-
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 
 const ADMIN_EMAIL = 'princegupta619@gmail.com';
 
@@ -31,6 +35,17 @@ type DeletionInfo = {
   type: 'transaction' | 'emi' | 'autopay';
 } | null;
 
+const profileFormSchema = z.object({
+  name: z.string().min(1, 'Name is required.'),
+  mobileNumber: z.string().length(10, 'Mobile number must be 10 digits.'),
+});
+
+type AppUser = {
+  email: string;
+  name: string;
+  mobileNumber: string;
+};
+
 export default function UserDetailPage() {
   const { user: adminUser, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -38,7 +53,7 @@ export default function UserDetailPage() {
   const userId = params.userId as string;
   const { toast } = useToast();
 
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [budget, setBudget] = useState<number | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
@@ -55,6 +70,14 @@ export default function UserDetailPage() {
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
 
+  const form = useForm<z.infer<typeof profileFormSchema>>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      name: '',
+      mobileNumber: '',
+    },
+  });
+
   const fetchData = useCallback(async () => {
     if (!userId || !adminUser) return;
     setLoading(true);
@@ -62,9 +85,10 @@ export default function UserDetailPage() {
       const userDocRef = doc(db, 'users', userId);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        setUser({ email: userData.email });
+        const userData = userDocSnap.data() as AppUser;
+        setUser(userData);
         setBudget(userData.budget || 0);
+        form.reset({ name: userData.name, mobileNumber: userData.mobileNumber });
       } else {
         throw new Error('User not found');
       }
@@ -87,7 +111,7 @@ export default function UserDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [userId, adminUser, toast]);
+  }, [userId, adminUser, toast, form]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -101,6 +125,21 @@ export default function UserDetailPage() {
     }
     fetchData();
   }, [adminUser, authLoading, fetchData, router]);
+
+  const handleProfileUpdate = async (values: z.infer<typeof profileFormSchema>) => {
+    setLoading(true);
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      await updateDoc(userDocRef, values);
+      toast({ title: 'Success', description: 'User profile has been updated.' });
+      fetchData();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to update profile.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddOrUpdateTransaction = async (data: Omit<Transaction, 'id' | 'date'> & { date: Date }, id?: string) => {
     const transactionData = { ...data, date: Timestamp.fromDate(data.date), amount: Number(data.amount) };
@@ -232,28 +271,78 @@ export default function UserDetailPage() {
             </Button>
         </div>
       </div>
-
-       {budget !== null && (
-        <div className="grid max-w-xs">
-          <SummaryCard 
-            icon={CircleDollarSign} 
-            title="Monthly Budget" 
-            value={budget} 
-          />
+      
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>User Profile</CardTitle>
+                    <CardDescription>Edit user name and mobile number.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleProfileUpdate)} className="space-y-6">
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Full Name</FormLabel>
+                                <FormControl>
+                                <Input placeholder="User's full name" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={form.control}
+                            name="mobileNumber"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Mobile Number</FormLabel>
+                                <FormControl>
+                                <Input type="tel" placeholder="9999999999" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                            <Input readOnly disabled value={user?.email || ''} />
+                            </FormControl>
+                        </FormItem>
+                         {budget !== null && (
+                            <FormItem>
+                                <FormLabel>Monthly Budget</FormLabel>
+                                <FormControl>
+                                <Input readOnly disabled value={`₹${budget.toFixed(2)}`} />
+                                </FormControl>
+                            </FormItem>
+                        )}
+                        <div className="flex justify-end">
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                Save Changes
+                            </Button>
+                        </div>
+                    </form>
+                    </Form>
+                </CardContent>
+            </Card>
         </div>
-      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-            <CardHeader>
-                <CardTitle>Transactions</CardTitle>
-                <CardDescription>All income and expense records for this user.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <TransactionTable transactions={transactions} onEdit={handleEditTransaction} onDelete={(id) => openDeleteDialog(id, 'transaction')} />
-            </CardContent>
-        </Card>
-        <div className="space-y-6">
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Transactions</CardTitle>
+                    <CardDescription>All income and expense records for this user.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <TransactionTable transactions={transactions} onEdit={handleEditTransaction} onDelete={(id) => openDeleteDialog(id, 'transaction')} />
+                </CardContent>
+            </Card>
             <Card>
                 <CardHeader>
                     <CardTitle>Running EMIs</CardTitle>
@@ -310,3 +399,5 @@ export default function UserDetailPage() {
     </>
   );
 }
+
+    
