@@ -3,27 +3,31 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // By default, deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow users to manage their own data
+    match /users/{userId}/{documents=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
     match /users/{userId} {
-      // Allow users to read, update, or delete their own document
-      allow read, update, delete: if request.auth.uid == userId;
-      // Allow a user to be created if they are a placeholder
-      allow create: if request.auth != null && request.resource.data.isPlaceholder == true;
+      // Allow any authenticated user to read user documents (for user lists)
+      allow read: if request.auth != null;
+      // Only allow a user to update/delete their own document
+      allow update, delete: if request.auth.uid == userId;
+      // Allow creating a user document only if it's a placeholder for an invite
+      allow create: if request.resource.data.isPlaceholder == true || request.auth.uid == userId;
     }
-
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth.uid == userId;
+    
+    // Allow admins to read/write all data
+    match /users/{userId}/{documents=**} {
+        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'princegupta619@gmail.com';
     }
-
-    // Rules for the 'groups' collection
-    match /groups/{groupId} {
-      // Allow read if the user is a member of the group
-      allow read: if request.auth != null && resource.data.members.hasAny([request.auth.uid]);
-      // Allow create if the user is authenticated and is the creator
-      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
-      // Allow update if the user is a member of the group
-      allow update: if request.auth != null && resource.data.members.hasAny([request.auth.uid]);
-      // Allow delete only by the group creator
-      allow delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+     match /users/{userId} {
+        allow read, write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.email == 'princegupta619@gmail.com';
     }
   }
 }
