@@ -80,6 +80,9 @@ export default function DashboardPage() {
             if (nextPaymentDate < currentDate) {
                 let monthsPassed = 0;
                 let newNextPaymentDate = nextPaymentDate;
+                
+                let emiStartDate = emi.startDate ? emi.startDate.toDate() : newNextPaymentDate;
+
 
                 while(newNextPaymentDate < currentDate && emi.monthsRemaining - monthsPassed > 0) {
                     monthsPassed++;
@@ -420,6 +423,8 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
 

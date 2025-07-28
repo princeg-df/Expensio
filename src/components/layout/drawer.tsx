@@ -105,15 +105,24 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     try {
         const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
         const transactionsSnapshot = await getDocs(transactionsQuery);
-        const transactions = transactionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, date: (doc.data().date as any).toDate() })) as Transaction[];
+        const transactions = transactionsSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { ...data, id: doc.id, date: data.date ? (data.date as Timestamp).toDate() : null };
+        }) as Transaction[];
 
         const emisQuery = query(collection(db, `users/${user.uid}/emis`));
         const emisSnapshot = await getDocs(emisQuery);
-        const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, startDate: (doc.data().startDate as any).toDate(), nextPaymentDate: (doc.data().nextPaymentDate as any).toDate() })) as Emi[];
+        const emis = emisSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { ...data, id: doc.id, startDate: data.startDate ? (data.startDate as Timestamp).toDate() : null, nextPaymentDate: data.nextPaymentDate ? (data.nextPaymentDate as Timestamp).toDate() : null };
+        }) as Emi[];
         
         const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
         const autopaysSnapshot = await getDocs(autopaysQuery);
-        const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, nextPaymentDate: (doc.data().nextPaymentDate as any).toDate() })) as Autopay[];
+        const autopays = autopaysSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return { ...data, id: doc.id, nextPaymentDate: data.nextPaymentDate ? (data.nextPaymentDate as Timestamp).toDate() : null };
+        }) as Autopay[];
 
         const userDocRef = doc(db, `users/${user.uid}`);
         const userDocSnap = await getDoc(userDocRef);
@@ -141,6 +150,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
             description: "Your data has been exported as a JSON file.",
         });
     } catch(e) {
+        console.error(e);
         toast({
             variant: 'destructive',
             title: "Error",
@@ -382,3 +392,5 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
+
+    

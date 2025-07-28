@@ -137,13 +137,16 @@ export default function ReportsPage() {
     
     // Calculate recurring EMI payments for the selected month
     emis.forEach(emi => {
-      if (!emi.startDate || emi.monthsRemaining === 0) return;
+      if (!emi.startDate) return;
       
-      let paymentDate = emi.startDate.toDate();
-      const emiEndDate = addMonths(paymentDate, emi.monthsRemaining);
+      const loanStartDate = emi.startDate.toDate();
+      const totalMonths = (emi.loanAmount / emi.amount); // This might not be perfect but gives an idea of original tenure
+      const originalTenureMonths = emi.monthsRemaining + differenceInMonths(new Date(), loanStartDate)
+      const emiEndDate = addMonths(loanStartDate, originalTenureMonths);
 
+      let paymentDate = loanStartDate;
       while(isBefore(paymentDate, emiEndDate)) {
-        if (getYear(paymentDate) > year) break;
+        if (getYear(paymentDate) > year + 1) break; 
         if (isWithinInterval(paymentDate, interval)) {
             events.push({
               date: paymentDate,
@@ -162,7 +165,7 @@ export default function ReportsPage() {
     // Calculate recurring Autopay payments for the selected month
     autopays.forEach(autopay => {
         if (!autopay.nextPaymentDate) return;
-        
+
         let monthIncrement = 1;
         if (autopay.frequency === 'Quarterly') monthIncrement = 3;
         else if (autopay.frequency === 'Half-Yearly') monthIncrement = 6;
@@ -314,3 +317,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
