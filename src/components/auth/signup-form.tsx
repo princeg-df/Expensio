@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -44,6 +45,8 @@ export function SignupForm() {
         email: user.email,
         createdAt: new Date(),
         budget: 0,
+        name: 'Guest',
+        mobileNumber: '9999999999',
       });
       
       toast({
@@ -58,7 +61,8 @@ export function SignupForm() {
         title: 'Sign Up Failed',
         description: error.message,
       });
-      setLoading(false);
+    } finally {
+        setLoading(false);
     }
   }
 
