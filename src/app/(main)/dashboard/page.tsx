@@ -40,6 +40,7 @@ export default function DashboardPage() {
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
   const [budget, setBudget] = useState(0);
+  const [userName, setUserName] = useState('');
   const [activeFilter, setActiveFilter] = useState<'all' | 'income' | 'expense'>('all');
   
   const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
@@ -61,6 +62,7 @@ export default function DashboardPage() {
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             setBudget(userData.budget || 0);
+            setUserName(userData.name || 'Guest');
 
             // Backfill existing user data
             if (!userData.name || !userData.mobileNumber) {
@@ -336,7 +338,7 @@ export default function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Hi, {userName}!</h1>
           <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
