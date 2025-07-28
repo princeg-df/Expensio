@@ -330,19 +330,19 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
         <SheetContent className="flex flex-col p-0">
           <SheetHeader className="p-4 border-b">
             <SheetTitle><ExpensioLogo /></SheetTitle>
-            <SheetDescription>
-                {userName ? (
-                    <div>
-                        <div className="font-semibold text-foreground">{userName}</div>
-                        <div className="text-xs">{user?.email}</div>
-                    </div>
-                ) : (
-                    <div>
-                        <Skeleton className="h-5 w-24" />
-                        <Skeleton className="h-4 w-32 mt-1" />
-                    </div>
-                )}
-            </SheetDescription>
+             {userName ? (
+              <SheetDescription asChild>
+                <div>
+                  <div className="font-semibold text-foreground">{userName}</div>
+                  <div className="text-xs">{user?.email}</div>
+                </div>
+              </SheetDescription>
+            ) : (
+              <div className="pt-1.5">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-4 w-32 mt-2" />
+              </div>
+            )}
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-4">
             <nav className="flex flex-col gap-2">
@@ -434,3 +434,5 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
+
+    
