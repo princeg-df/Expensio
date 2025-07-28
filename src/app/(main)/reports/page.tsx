@@ -6,14 +6,14 @@ import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getMonth, getYear, format, addMonths, isBefore } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SummaryCard } from '@/components/dashboard/summary-card';
-import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, CircleDollarSign } from 'lucide-react';
+import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, CircleDollarSign, Wallet } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { cn } from '@/lib/utils';
 
@@ -109,17 +109,18 @@ export default function ReportsPage() {
   }, [user]);
 
   useEffect(() => {
+    if (authLoading) return;
     if (user) {
       fetchData();
     }
-  }, [user, fetchData]);
+  }, [user, authLoading, fetchData]);
 
 
-  const { monthlyEvents, totalIncome, totalExpenses, netFlow } = useMemo(() => {
+  const { monthlyEvents, totalExpenses, netFlow, remainingAmount } = useMemo(() => {
     const month = parseInt(selectedMonth);
     const year = parseInt(selectedYear);
     if (isNaN(month) || isNaN(year)) {
-      return { monthlyEvents: [], totalIncome: 0, totalExpenses: 0, netFlow: 0 };
+      return { monthlyEvents: [], totalIncome: 0, totalExpenses: 0, netFlow: 0, remainingAmount: 0 };
     }
     const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
@@ -145,8 +146,9 @@ export default function ReportsPage() {
         if (!emi.startDate || emi.monthsRemaining <= 0) return;
         
         let paymentDate = emi.startDate.toDate();
+        const originalMonths = emi.monthsRemaining + 1;
 
-        for (let i = 0; i < (emi.monthsRemaining + 100); i++) { // Loop past total months to be safe
+        for (let i = 0; i < originalMonths; i++) { 
             if (getYear(paymentDate) > year + 1) break; 
             
             if (isWithinInterval(paymentDate, interval)) {
@@ -158,9 +160,9 @@ export default function ReportsPage() {
                    category: 'EMI',
                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-                break;
+                break; 
             }
-            if(isBefore(interval.end, paymentDate)) break;
+             if (isBefore(interval.end, paymentDate) && getYear(paymentDate) === year && paymentDate.getMonth() > month) break;
             paymentDate = addMonths(paymentDate, 1);
         }
     });
@@ -181,15 +183,19 @@ export default function ReportsPage() {
           paymentDate = addMonths(paymentDate, monthIncrement);
         }
         
-        if (isWithinInterval(paymentDate, interval)) {
-          events.push({
-              date: paymentDate,
-              description: autopay.name,
-              amount: autopay.amount,
-              type: 'fixed',
-              category: autopay.category,
-              icon: categoryIcons[autopay.category] || Receipt,
-          });
+        while (isWithinInterval(paymentDate, interval) || isBefore(paymentDate, interval.end)) {
+             if (isWithinInterval(paymentDate, interval)) {
+                events.push({
+                    date: paymentDate,
+                    description: autopay.name,
+                    amount: autopay.amount,
+                    type: 'fixed',
+                    category: autopay.category,
+                    icon: categoryIcons[autopay.category] || Receipt,
+                });
+             }
+            paymentDate = addMonths(paymentDate, monthIncrement);
+            if(getYear(paymentDate) > year) break;
         }
     });
 
@@ -205,11 +211,11 @@ export default function ReportsPage() {
 
     return {
       monthlyEvents: events,
-      totalIncome: income,
       totalExpenses: expenses,
       netFlow: income - expenses,
+      remainingAmount: budget - expenses,
     };
-  }, [transactions, emis, autopays, selectedMonth, selectedYear]);
+  }, [transactions, emis, autopays, selectedMonth, selectedYear, budget]);
 
   if (authLoading || loading) {
     return (
@@ -250,9 +256,10 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
         <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
+        <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
         <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
 
@@ -320,3 +327,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
