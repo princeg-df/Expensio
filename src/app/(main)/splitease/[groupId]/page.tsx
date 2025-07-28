@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MembersList } from '@/components/splitease/members-list';
 import { AddExpenseDialog } from '@/components/splitease/add-expense-dialog';
 import { ExpenseList } from '@/components/splitease/expense-list';
+import { SettlementSummary } from '@/components/splitease/settlement-summary';
 
 export default function GroupDetailPage() {
   const { user, loading: authLoading } = useAuth();
@@ -104,6 +105,66 @@ export default function GroupDetailPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to add expense.' });
     }
   };
+  
+  const balances = useMemo(() => {
+    const balanceMap: { [key: string]: number } = {};
+    if (!members.length) return { debtors: [], creditors: [] };
+
+    members.forEach(member => {
+        balanceMap[member.id] = 0;
+    });
+
+    expenses.forEach(expense => {
+        balanceMap[expense.paidBy] += expense.amount;
+        expense.splitWith.forEach(share => {
+            balanceMap[share.uid] -= share.amount;
+        });
+    });
+
+    const debtors: { uid: string, amount: number }[] = [];
+    const creditors: { uid: string, amount: number }[] = [];
+
+    Object.entries(balanceMap).forEach(([uid, amount]) => {
+        if (amount < 0) {
+            debtors.push({ uid, amount: -amount });
+        } else if (amount > 0) {
+            creditors.push({ uid, amount });
+        }
+    });
+
+    return { debtors, creditors };
+  }, [expenses, members]);
+
+  const { owes, owed } = useMemo(() => {
+    if (!user) return { owes: [], owed: [] };
+    const owesList: { name: string, amount: number }[] = [];
+    const owedList: { name: string, amount: number }[] = [];
+
+    let userBalance = (balances.creditors.find(c => c.uid === user.id)?.amount || 0) - 
+                      (balances.debtors.find(d => d.uid === user.id)?.amount || 0);
+
+    if (userBalance > 0) { // User is a creditor
+        balances.debtors.forEach(debtor => {
+            const amountOwed = Math.min(userBalance, debtor.amount);
+            if (amountOwed > 0.01) {
+                owedList.push({ name: members.find(m => m.id === debtor.uid)?.name || 'Unknown', amount: amountOwed });
+                userBalance -= amountOwed;
+            }
+        });
+    } else if (userBalance < 0) { // User is a debtor
+        userBalance = -userBalance;
+        balances.creditors.forEach(creditor => {
+            const amountToPay = Math.min(userBalance, creditor.amount);
+            if (amountToPay > 0.01) {
+                owesList.push({ name: members.find(m => m.id === creditor.uid)?.name || 'Unknown', amount: amountToPay });
+                userBalance -= amountToPay;
+            }
+        });
+    }
+
+    return { owes: owesList, owed: owedList };
+  }, [balances, user, members]);
+
 
 
   if (loading || authLoading) {
@@ -158,6 +219,15 @@ export default function GroupDetailPage() {
                 </CardHeader>
                 <CardContent>
                     <MembersList members={members} />
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Settlement</CardTitle>
+                    <CardDescription>A summary of who owes who.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <SettlementSummary owes={owes} owed={owed} />
                 </CardContent>
             </Card>
         </div>
