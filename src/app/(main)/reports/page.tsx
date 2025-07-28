@@ -6,7 +6,7 @@ import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
-import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore } from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore, getMonth } from 'date-fns';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -109,14 +109,13 @@ export default function ReportsPage() {
   }, [user]);
 
   useEffect(() => {
-    if (authLoading) return;
     if (user) {
       fetchData();
     }
-  }, [user, authLoading, fetchData]);
+  }, [user, fetchData]);
 
 
-  const { monthlyEvents, totalExpenses, netFlow, remainingAmount } = useMemo(() => {
+  const { monthlyEvents, totalExpenses, totalIncome, netFlow, remainingAmount } = useMemo(() => {
     const month = parseInt(selectedMonth);
     const year = parseInt(selectedYear);
     if (isNaN(month) || isNaN(year)) {
@@ -124,6 +123,7 @@ export default function ReportsPage() {
     }
     const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
+    // --- Create list of events that physically occur this month ---
     let events: FinancialEvent[] = [];
     
     transactions.forEach(t => {
@@ -146,12 +146,10 @@ export default function ReportsPage() {
         if (!emi.startDate || emi.monthsRemaining <= 0) return;
         
         let paymentDate = emi.startDate.toDate();
-        const originalMonths = emi.monthsRemaining + 1;
+        const endDate = addMonths(emi.startDate.toDate(), emi.monthsRemaining);
 
-        for (let i = 0; i < originalMonths; i++) { 
-            if (getYear(paymentDate) > year + 1) break; 
-            
-            if (isWithinInterval(paymentDate, interval)) {
+        while(isBefore(paymentDate, endDate)) {
+            if (getMonth(paymentDate) === month && getYear(paymentDate) === year) {
                 events.push({
                    date: paymentDate,
                    description: emi.name,
@@ -160,9 +158,8 @@ export default function ReportsPage() {
                    category: 'EMI',
                    icon: categoryIcons[emi.name.includes('Car') ? 'Car Loan' : 'Home Loan'] || Home
                 });
-                break; 
+                break;
             }
-             if (isBefore(interval.end, paymentDate) && getYear(paymentDate) === year && paymentDate.getMonth() > month) break;
             paymentDate = addMonths(paymentDate, 1);
         }
     });
@@ -179,11 +176,15 @@ export default function ReportsPage() {
 
         let paymentDate = autopay.nextPaymentDate.toDate();
 
-        while (isBefore(paymentDate, interval.start)) {
-          paymentDate = addMonths(paymentDate, monthIncrement);
+        // Go back in time to find the first payment to check against the interval
+        while (isBefore(interval.start, paymentDate)) {
+             const prevDate = addMonths(paymentDate, -monthIncrement);
+             if(getYear(prevDate) < year - 1) break; // Optimization
+             paymentDate = prevDate;
         }
-        
-        while (isWithinInterval(paymentDate, interval) || isBefore(paymentDate, interval.end)) {
+
+        // Go forward and check for payments within the interval
+        while (isBefore(paymentDate, interval.end)) {
              if (isWithinInterval(paymentDate, interval)) {
                 events.push({
                     date: paymentDate,
@@ -193,27 +194,53 @@ export default function ReportsPage() {
                     category: autopay.category,
                     icon: categoryIcons[autopay.category] || Receipt,
                 });
+                break;
              }
             paymentDate = addMonths(paymentDate, monthIncrement);
-            if(getYear(paymentDate) > year) break;
         }
     });
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
+    // --- Calculate monthly cost for summary cards ---
+    
+    const variableExpenses = transactions
+      .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const emisAmount = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
+    
+    const autopaysAmount = autopays.reduce((sum, autopay) => {
+        let monthlyAmount = 0;
+        switch (autopay.frequency) {
+            case 'Monthly':
+                monthlyAmount = autopay.amount;
+                break;
+            case 'Quarterly':
+                monthlyAmount = autopay.amount / 3;
+                break;
+            case 'Half-Yearly':
+                monthlyAmount = autopay.amount / 6;
+                break;
+            case 'Yearly':
+                monthlyAmount = autopay.amount / 12;
+                break;
+        }
+        return sum + monthlyAmount;
+    }, 0);
+    
+    const totalMonthlyExpenses = variableExpenses + emisAmount + autopaysAmount;
+
     const income = events
       .filter((e) => e.type === 'income')
       .reduce((sum, e) => sum + e.amount, 0);
 
-    const expenses = events
-      .filter((e) => e.type === 'expense' || e.type === 'fixed')
-      .reduce((sum, e) => sum + e.amount, 0);
-
     return {
       monthlyEvents: events,
-      totalExpenses: expenses,
-      netFlow: income - expenses,
-      remainingAmount: budget - expenses,
+      totalIncome: income,
+      totalExpenses: totalMonthlyExpenses,
+      netFlow: income - totalMonthlyExpenses,
+      remainingAmount: budget - totalMonthlyExpenses,
     };
   }, [transactions, emis, autopays, selectedMonth, selectedYear, budget]);
 
@@ -256,16 +283,17 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
-        <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
-        <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
+        <SummaryCard icon={Receipt} title="Total Monthly Cost" value={totalExpenses} />
+        <SummaryCard icon={Wallet} title="Remaining Budget" value={remainingAmount} />
         <SummaryCard icon={PiggyBank} title="Net Flow" value={netFlow} />
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
+          <CardContent>This list shows actual transactions that occurred this month. The summary cards above reflect your average monthly cost.</CardContent>
         </CardHeader>
         <CardContent>
            <Table>
