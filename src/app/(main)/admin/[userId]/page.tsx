@@ -44,6 +44,7 @@ type AppUser = {
   email: string;
   name: string;
   mobileNumber: string;
+  budget?: number;
 };
 
 export default function UserDetailPage() {
@@ -88,7 +89,7 @@ export default function UserDetailPage() {
         const userData = userDocSnap.data() as AppUser;
         setUser(userData);
         setBudget(userData.budget || 0);
-        form.reset({ name: userData.name, mobileNumber: userData.mobileNumber });
+        form.reset({ name: userData.name || '', mobileNumber: userData.mobileNumber || '' });
       } else {
         throw new Error('User not found');
       }
@@ -399,5 +400,3 @@ export default function UserDetailPage() {
     </>
   );
 }
-
-    
