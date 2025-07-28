@@ -17,6 +17,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader } from '../ui/loader';
 import { useToast } from '@/hooks/use-toast';
+import { X } from 'lucide-react';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
 
 type AppUser = {
   id: string;
@@ -25,13 +28,13 @@ type AppUser = {
 
 const formSchema = z.object({
   groupName: z.string().min(3, { message: 'Group name must be at least 3 characters.' }),
-  members: z.array(z.string()).min(1, { message: 'You must select at least one member.' }),
+  members: z.array(z.string()),
 });
 
 type CreateGroupDialogProps = {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
-  onCreateGroup: (groupName: string, selectedMembers: string[]) => Promise<void>;
+  onCreateGroup: (groupName: string, selectedMembers: string[], invitedEmails: string[]) => Promise<void>;
 };
 
 export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: CreateGroupDialogProps) {
@@ -39,10 +42,13 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
   const { toast } = useToast();
   const [allUsers, setAllUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invitedEmails, setInvitedEmails] = useState<string[]>([]);
+  const [emailInput, setEmailInput] = useState('');
 
   useEffect(() => {
     const fetchUsers = async () => {
       if (!user) return;
+      setLoading(true);
       try {
         const usersQuery = query(collection(db, 'users'), where('email', '!=', user.email));
         const querySnapshot = await getDocs(usersQuery);
@@ -70,11 +76,36 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
 
   const handleClose = () => {
     form.reset();
+    setInvitedEmails([]);
+    setEmailInput('');
     onOpenChange(false);
   };
+  
+  const handleAddEmail = () => {
+    const emailSchema = z.string().email();
+    const result = emailSchema.safeParse(emailInput);
+    if (!result.success) {
+        toast({ variant: 'destructive', title: 'Invalid Email', description: 'Please enter a valid email address.' });
+        return;
+    }
+    if (invitedEmails.includes(emailInput) || allUsers.some(u => u.email === emailInput) || user?.email === emailInput) {
+        toast({ variant: 'destructive', title: 'Duplicate Email', description: 'This user is already in the list.' });
+        return;
+    }
+    setInvitedEmails(prev => [...prev, emailInput]);
+    setEmailInput('');
+  }
+  
+  const handleRemoveEmail = (emailToRemove: string) => {
+    setInvitedEmails(prev => prev.filter(email => email !== emailToRemove));
+  }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    await onCreateGroup(values.groupName, values.members);
+    if (values.members.length === 0 && invitedEmails.length === 0) {
+        toast({ variant: 'destructive', title: 'No Members', description: 'You must add at least one other member or invite someone.' });
+        return;
+    }
+    await onCreateGroup(values.groupName, values.members, invitedEmails);
     handleClose();
   }
 
@@ -102,54 +133,86 @@ export function CreateGroupDialog({ isOpen, onOpenChange, onCreateGroup }: Creat
                 </FormItem>
               )}
             />
+            
+            <div>
+              <FormLabel>Invite users by email</FormLabel>
+              <div className="flex items-center gap-2 mt-2">
+                <Input
+                    type="email"
+                    placeholder="name@example.com"
+                    value={emailInput}
+                    onChange={e => setEmailInput(e.target.value)}
+                />
+                <Button type="button" onClick={handleAddEmail}>Add</Button>
+              </div>
+            </div>
+
             <FormField
               control={form.control}
               name="members"
               render={() => (
                 <FormItem>
-                  <div className="mb-4">
+                  <div className="mb-2">
                     <FormLabel>Select Members</FormLabel>
                   </div>
-                  <ScrollArea className="h-48 w-full rounded-md border p-4">
+                  <ScrollArea className="h-48 w-full rounded-md border">
+                    <div className="p-4">
                     {loading ? (
                       <div className="flex items-center justify-center h-full">
                         <Loader />
                       </div>
-                    ) : allUsers.length > 0 ? (
-                      allUsers.map((appUser) => (
-                        <FormField
-                          key={appUser.id}
-                          control={form.control}
-                          name="members"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={appUser.id}
-                                className="flex flex-row items-start space-x-3 space-y-0 mb-4"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(appUser.id)}
-                                    onCheckedChange={(checked) => {
-                                      return checked
-                                        ? field.onChange([...field.value, appUser.id])
-                                        : field.onChange(
-                                            field.value?.filter(
-                                              (value) => value !== appUser.id
-                                            )
-                                          );
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormLabel className="font-normal">{appUser.email}</FormLabel>
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      ))
+                    ) : (allUsers.length === 0 && invitedEmails.length === 0) ? (
+                       <p className="text-sm text-muted-foreground text-center pt-14">No other users found. Invite someone by email!</p>
                     ) : (
-                      <p className="text-sm text-muted-foreground text-center">No other users found.</p>
+                      <>
+                        {invitedEmails.map(email => (
+                           <div key={email} className="flex items-center justify-between mb-4">
+                             <div className="flex items-center space-x-3">
+                               <Badge variant="secondary">Invited</Badge>
+                               <span className="font-normal">{email}</span>
+                             </div>
+                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveEmail(email)}>
+                               <X className="h-4 w-4"/>
+                             </Button>
+                           </div>
+                        ))}
+
+                        {invitedEmails.length > 0 && allUsers.length > 0 && <Separator className="my-4"/>}
+
+                        {allUsers.map((appUser) => (
+                          <FormField
+                            key={appUser.id}
+                            control={form.control}
+                            name="members"
+                            render={({ field }) => {
+                              return (
+                                <FormItem
+                                  key={appUser.id}
+                                  className="flex flex-row items-start space-x-3 space-y-0 mb-4"
+                                >
+                                  <FormControl>
+                                    <Checkbox
+                                      checked={field.value?.includes(appUser.id)}
+                                      onCheckedChange={(checked) => {
+                                        return checked
+                                          ? field.onChange([...(field.value || []), appUser.id])
+                                          : field.onChange(
+                                              (field.value || []).filter(
+                                                (value) => value !== appUser.id
+                                              )
+                                            );
+                                      }}
+                                    />
+                                  </FormControl>
+                                  <FormLabel className="font-normal">{appUser.email}</FormLabel>
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        ))}
+                      </>
                     )}
+                    </div>
                   </ScrollArea>
                    <FormMessage />
                 </FormItem>

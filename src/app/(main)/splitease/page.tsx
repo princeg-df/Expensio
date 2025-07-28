@@ -16,7 +16,7 @@ export default function SplitEasePage() {
   const { toast } = useToast();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
-  const handleCreateGroup = async (groupName: string, selectedMembers: string[]) => {
+  const handleCreateGroup = async (groupName: string, selectedMembers: string[], invitedEmails: string[]) => {
     if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to create a group.' });
       return;
@@ -26,6 +26,7 @@ export default function SplitEasePage() {
       await addDoc(collection(db, 'groups'), {
         name: groupName,
         members: [user.uid, ...selectedMembers],
+        invitedMembers: invitedEmails,
         createdAt: Timestamp.now(),
         createdBy: user.uid,
       });

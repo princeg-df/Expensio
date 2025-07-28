@@ -40,6 +40,7 @@ export type Group = {
   id: string;
   name: string;
   members: string[]; // Array of user UIDs
+  invitedMembers?: string[]; // Array of invited emails
   createdAt: Timestamp;
   createdBy: string; // UID of the user who created the group
 };
