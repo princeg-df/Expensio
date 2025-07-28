@@ -123,7 +123,6 @@ export default function ReportsPage() {
     }
     const interval = { start: startOfMonth(new Date(year, month)), end: endOfMonth(new Date(year, month)) };
 
-    // --- Create list of events that physically occur this month ---
     let events: FinancialEvent[] = [];
     
     transactions.forEach(t => {
@@ -144,13 +143,7 @@ export default function ReportsPage() {
     
     emis.forEach(emi => {
         if (!emi.startDate || emi.monthsRemaining <= 0 || isAfter(emi.startDate.toDate(), interval.end)) return;
-        
         let paymentDate = emi.startDate.toDate();
-
-        while(isBefore(paymentDate, emi.startDate.toDate())) {
-          paymentDate = addMonths(paymentDate, 1);
-        }
-
         const loanEndDate = addMonths(emi.startDate.toDate(), emi.monthsRemaining);
 
         while(isBefore(paymentDate, loanEndDate)) {
@@ -181,8 +174,7 @@ export default function ReportsPage() {
         }
 
         let paymentDate = autopay.nextPaymentDate.toDate();
-
-        while (isAfter(paymentDate, interval.start) && getYear(paymentDate) > year - 2) {
+        while (getMonth(paymentDate) > month || getYear(paymentDate) > year) {
              paymentDate = addMonths(paymentDate, -monthIncrement);
         }
         
@@ -198,15 +190,17 @@ export default function ReportsPage() {
                 });
                 break;
              }
-            paymentDate = addMonths(paymentDate, monthIncrement);
-             if(isAfter(paymentDate, interval.end)) break;
+             const nextDate = addMonths(paymentDate, monthIncrement);
+             if (isAfter(nextDate, paymentDate)) {
+                 paymentDate = nextDate;
+             } else {
+                 break;
+             }
         }
     });
 
     events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    // --- Calculate monthly cost for summary cards (Accrual Method) ---
-    
     const variableExpenses = transactions
       .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
       .reduce((sum, t) => sum + t.amount, 0);
@@ -222,18 +216,10 @@ export default function ReportsPage() {
         if (autopay.nextPaymentDate && !isAfter(autopay.nextPaymentDate.toDate(), interval.end)) {
             let monthlyAmount = 0;
             switch (autopay.frequency) {
-                case 'Monthly':
-                    monthlyAmount = autopay.amount;
-                    break;
-                case 'Quarterly':
-                    monthlyAmount = autopay.amount / 3;
-                    break;
-                case 'Half-Yearly':
-                    monthlyAmount = autopay.amount / 6;
-                    break;
-                case 'Yearly':
-                    monthlyAmount = autopay.amount / 12;
-                    break;
+                case 'Monthly': monthlyAmount = autopay.amount; break;
+                case 'Quarterly': monthlyAmount = autopay.amount / 3; break;
+                case 'Half-Yearly': monthlyAmount = autopay.amount / 6; break;
+                case 'Yearly': monthlyAmount = autopay.amount / 12; break;
             }
             return sum + monthlyAmount;
         }
@@ -304,7 +290,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Financial Events for {months.find(m => m.value === selectedMonth)?.label} {selectedYear}</CardTitle>
-          <CardDescription className="p-0 pt-2 text-sm text-muted-foreground">
+           <CardDescription className="p-0 pt-2 text-sm text-muted-foreground">
             This list shows actual transactions scheduled for this month. The summary cards above reflect your average monthly cost.
           </CardDescription>
         </CardHeader>
@@ -367,5 +353,7 @@ export default function ReportsPage() {
       </Card>
     </div>
   );
+
+}
 
     

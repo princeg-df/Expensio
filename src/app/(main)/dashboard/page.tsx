@@ -7,7 +7,7 @@ import { db, auth } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { addMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { addMonths, startOfMonth, endOfMonth, isWithinInterval, isAfter } from 'date-fns';
 
 import { SummaryCard } from '@/components/dashboard/summary-card';
 import { ExpenseChart } from '@/components/dashboard/expense-chart';
@@ -259,25 +259,33 @@ export default function DashboardPage() {
       .filter((t) => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
       .reduce((sum, t) => sum + t.amount, 0);
 
-    const emisAmount = emis.reduce((sum, t) => sum + (t.monthsRemaining > 0 ? t.amount : 0), 0);
+    const emisAmount = emis.reduce((sum, emi) => {
+        if (emi.monthsRemaining > 0 && emi.startDate && !isAfter(emi.startDate.toDate(), interval.end)) {
+            return sum + emi.amount;
+        }
+        return sum;
+    }, 0);
     
     const autopaysAmount = autopays.reduce((sum, autopay) => {
-        let monthlyAmount = 0;
-        switch (autopay.frequency) {
-            case 'Monthly':
-                monthlyAmount = autopay.amount;
-                break;
-            case 'Quarterly':
-                monthlyAmount = autopay.amount / 3;
-                break;
-            case 'Half-Yearly':
-                monthlyAmount = autopay.amount / 6;
-                break;
-            case 'Yearly':
-                monthlyAmount = autopay.amount / 12;
-                break;
+        if (autopay.nextPaymentDate && !isAfter(autopay.nextPaymentDate.toDate(), interval.end)) {
+            let monthlyAmount = 0;
+            switch (autopay.frequency) {
+                case 'Monthly':
+                    monthlyAmount = autopay.amount;
+                    break;
+                case 'Quarterly':
+                    monthlyAmount = autopay.amount / 3;
+                    break;
+                case 'Half-Yearly':
+                    monthlyAmount = autopay.amount / 6;
+                    break;
+                case 'Yearly':
+                    monthlyAmount = autopay.amount / 12;
+                    break;
+            }
+            return sum + monthlyAmount;
         }
-        return sum + monthlyAmount;
+        return sum;
     }, 0);
     
     const totalExp = expensesFromTransactions + emisAmount + autopaysAmount;
@@ -446,7 +454,5 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
 
     
