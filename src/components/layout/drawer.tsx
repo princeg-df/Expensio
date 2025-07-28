@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -338,6 +338,15 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                 </Link>
                )}
               <Separator />
+               <Link href="/profile" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/profile' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                  <User className="mr-2 h-4 w-4" /> Profile
+                </Button>
+              </Link>
+              <Button variant="ghost" onClick={() => setIsChangePasswordOpen(true)} className="w-full justify-start">
+                  <Lock className="mr-2 h-4 w-4" /> Change Password
+              </Button>
+              <Separator />
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
               <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>
                 <Upload className="mr-2 h-4 w-4" /> Import Data
@@ -357,9 +366,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
                  <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
                </Button>
-                <Button variant="ghost" onClick={() => setIsChangePasswordOpen(true)} className="w-full justify-start">
-                    <Lock className="mr-2 h-4 w-4" /> Change Password
-                </Button>
             </nav>
           </div>
           <div className="p-4 border-t">
