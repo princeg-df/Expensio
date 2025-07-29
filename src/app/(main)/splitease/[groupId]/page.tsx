@@ -4,7 +4,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuth } from '@/providers/app-provider';
 import { useParams, useRouter, notFound } from 'next/navigation';
-import { doc, getDoc, onSnapshot, collection, query, where, addDoc, updateDoc, deleteDoc, Timestamp, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Group, AppUser, GroupExpense } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
@@ -12,13 +12,14 @@ import Link from 'next/link';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, PlusCircle, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, PlusCircle, Users } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { AddExpenseDialog } from '@/components/splitease/add-expense-dialog';
 import { ExpenseList } from '@/components/splitease/expense-list';
 import { MembersList } from '@/components/splitease/members-list';
 import { SettlementSummary } from '@/components/splitease/settlement-summary';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 export default function GroupDetailPage() {
@@ -51,12 +52,14 @@ export default function GroupDetailPage() {
         setGroup(groupData);
 
         const memberIds = groupData.members;
-        const membersPromises = memberIds.map(id => getDoc(doc(db, 'users', id)));
-        const memberDocs = await Promise.all(membersPromises);
-        const membersData = memberDocs
-            .filter(doc => doc.exists())
-            .map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
-        setMembers(membersData);
+        if (memberIds.length > 0) {
+            const membersPromises = memberIds.map(id => getDoc(doc(db, 'users', id)));
+            const memberDocs = await Promise.all(membersPromises);
+            const membersData = memberDocs
+                .filter(doc => doc.exists())
+                .map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+            setMembers(membersData);
+        }
 
       } else {
         setGroup(null);
@@ -69,6 +72,8 @@ export default function GroupDetailPage() {
     const unsubscribeExpenses = onSnapshot(expensesQuery, (querySnapshot) => {
       const expensesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
       setExpenses(expensesData.sort((a,b) => b.date.toMillis() - a.date.toMillis()));
+    }, () => {
+        setLoading(false);
     });
     
     return () => {
@@ -86,7 +91,7 @@ export default function GroupDetailPage() {
         description: data.description,
         amount: Number(data.amount),
         paidBy: data.paidBy,
-        splitWith: data.splitWith.map((uid: string) => ({ uid })),
+        splitWith: data.splitWith.map((uid: string) => ({ uid, amount: 0 })), // amount can be calculated later
         date: Timestamp.now(),
         groupId: group.id,
       };
@@ -122,7 +127,7 @@ export default function GroupDetailPage() {
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || members.length === 0 || expenses.length === 0) {
+    if (!user || members.length === 0) {
       return { owes: [], owed: [] };
     }
 
@@ -132,12 +137,14 @@ export default function GroupDetailPage() {
     });
 
     expenses.forEach(expense => {
-      if (!balances[expense.paidBy]) balances[expense.paidBy] = 0;
-      balances[expense.paidBy] += expense.amount;
+      if(balances[expense.paidBy] !== undefined) {
+         balances[expense.paidBy] += expense.amount;
+      }
       const share = expense.amount / expense.splitWith.length;
       expense.splitWith.forEach(split => {
-        if (!balances[split.uid]) balances[split.uid] = 0;
-        balances[split.uid] -= share;
+         if(balances[split.uid] !== undefined) {
+            balances[split.uid] -= share;
+         }
       });
     });
 
@@ -222,21 +229,23 @@ export default function GroupDetailPage() {
                  </Card>
             </div>
             <div className="lg:col-span-1 space-y-6">
-                <Card>
+                 <Card>
                     <CardHeader>
-                        <CardTitle>Settlements</CardTitle>
-                        <CardDescription>Your current balance in the group.</CardDescription>
+                        <CardTitle>Group Info</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <SettlementSummary owes={owes} owed={owed} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Members</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <MembersList members={members}/>
+                        <Tabs defaultValue="settlements">
+                            <TabsList className="grid w-full grid-cols-2">
+                                <TabsTrigger value="settlements">Settlements</TabsTrigger>
+                                <TabsTrigger value="members">Members</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="settlements" className="mt-4">
+                               <SettlementSummary owes={owes} owed={owed} />
+                            </TabsContent>
+                            <TabsContent value="members" className="mt-4">
+                                <MembersList members={members}/>
+                            </TabsContent>
+                        </Tabs>
                     </CardContent>
                 </Card>
             </div>
@@ -268,5 +277,3 @@ export default function GroupDetailPage() {
     </>
   );
 }
-
-    
