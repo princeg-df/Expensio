@@ -134,32 +134,25 @@ export default function SplitEasePage() {
             Create Group
           </Button>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Groups</CardTitle>
-            <CardDescription>
-              Here are all the groups you are a part of.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {authLoading || loading ? (
-              <div className="flex h-48 items-center justify-center">
-                <Loader />
-              </div>
-            ) : groups.length === 0 ? (
-               <div className="flex h-48 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20">
-                <p className="text-muted-foreground">You are not in any groups yet.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {groups.map(group => (
-                  <GroupCard key={group.id} group={group} onLeave={() => setGroupToLeave(group)} />
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        
+        {authLoading || loading ? (
+            <div className="flex h-64 items-center justify-center">
+            <Loader />
+            </div>
+        ) : groups.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-card h-64">
+                <div className="text-center">
+                    <h2 className="text-xl font-semibold">No Groups Yet</h2>
+                    <p className="text-muted-foreground mt-2">Get started by creating a group to split expenses.</p>
+                </div>
+            </div>
+        ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {groups.map(group => (
+                <GroupCard key={group.id} group={group} onLeave={() => setGroupToLeave(group)} />
+            ))}
+            </div>
+        )}
       </div>
       <CreateGroupDialog
         isOpen={isCreateGroupOpen}
