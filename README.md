@@ -16,3 +16,24 @@ Whether you're looking to save more, get out of debt, or simply understand where
 *   **Admin Management Panel**: A dedicated panel for administrators to view user financials and manage application data.
 
 To get started, create an account and begin your journey to financial clarity!
+
+## Color Scheme
+
+Expensio uses a sophisticated dark theme with gold accents. Below are the HSL color codes used throughout the application:
+
+| Name                   | HSL Value       | Description                 |
+| ---------------------- | --------------- | --------------------------- |
+| **Background**         | `0 0% 10%`      | Charcoal Gray               |
+| **Foreground**         | `0 0% 96%`      | Soft White Text             |
+| **Card**               | `0 0% 10%`      | Charcoal Gray               |
+| **Popover**            | `0 0% 5%`       | Rich Black                  |
+| **Primary**            | `45 63% 52%`    | Royal Gold                  |
+| **Primary Foreground** | `0 0% 5%`       | Rich Black on primary       |
+| **Secondary**          | `0 0% 15%`      | Slightly lighter charcoal   |
+| **Muted**              | `0 0% 20%`      | Darker muted tone           |
+| **Muted Foreground**   | `0 0% 65%`      | Lighter muted text          |
+| **Accent**             | `51 100% 50%`   | Bright Gold Highlight       |
+| **Accent Foreground**  | `0 0% 5%`       | Rich Black on accent        |
+| **Destructive**        | `0 84.2% 60.2%` | Red for destructive actions |
+| **Border / Input**     | `0 0% 20%`      | Border and input background |
+| **Ring**               | `45 63% 52%`    | Royal Gold for focus rings  |
