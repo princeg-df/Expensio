@@ -151,7 +151,7 @@ export default function GroupDetailPage() {
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || members.length === 0) {
+    if (!user || members.length === 0 || expenses.length === 0) {
       return { owes: [], owed: [] };
     }
 
