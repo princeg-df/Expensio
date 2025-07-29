@@ -7,15 +7,19 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { startOfMonth, endOfMonth, isWithinInterval, getYear, format, addMonths, isBefore, getMonth, isAfter } from 'date-fns';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { SummaryCard } from '@/components/dashboard/summary-card';
-import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, CircleDollarSign, Wallet } from 'lucide-react';
+import { HandCoins, Landmark, PiggyBank, Receipt, UtensilsCrossed, Car, Home, Plane, ShoppingCart, Lightbulb, Ticket, Briefcase, CircleDollarSign, Wallet, Download } from 'lucide-react';
 import { Loader } from '@/components/ui/loader';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 type FinancialEvent = {
   date: Date;
@@ -45,6 +49,7 @@ const categoryIcons: { [key: string]: React.ComponentType<{ className?: string }
 
 export default function ReportsPage() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
   const [autopays, setAutopays] = useState<Autopay[]>([]);
@@ -236,6 +241,64 @@ export default function ReportsPage() {
   }, [transactions, emis, autopays, selectedMonth, selectedYear, budget]);
 
 
+  const handleExportPdf = () => {
+    if (!user) return;
+     try {
+      const docPdf = new jsPDF();
+      const monthLabel = months.find(m => m.value === selectedMonth)?.label;
+      const title = `Expensio Report - ${monthLabel} ${selectedYear}`;
+      
+      docPdf.setFontSize(22);
+      docPdf.text(title, 14, 22);
+      docPdf.setFontSize(12);
+      docPdf.text(`Report for: ${user.email}`, 14, 30);
+      
+      const summaryData = [
+        ['Monthly Budget', `₹${budget.toFixed(2)}`],
+        ['Total Income', `₹${totalIncome.toFixed(2)}`],
+        ['Total Expenses', `₹${totalExpenses.toFixed(2)}`],
+        ['Remaining Budget', `₹${remainingAmount.toFixed(2)}`],
+        ['Net Flow', `₹${netFlow.toFixed(2)}`],
+      ];
+
+      autoTable(docPdf, {
+        startY: 40,
+        head: [['Summary', 'Amount']],
+        body: summaryData,
+        headStyles: { fillColor: [13, 13, 13] },
+      });
+
+      let lastTableY = (docPdf as any).lastAutoTable.finalY;
+
+      if(monthlyEvents.length > 0) {
+        autoTable(docPdf, {
+            startY: lastTableY + 15,
+            head: [['Date', 'Description', 'Category', 'Type', 'Amount']],
+            body: monthlyEvents.map(e => [ 
+                format(e.date, 'dd MMM, yyyy'), 
+                e.description, 
+                e.category,
+                e.type,
+                `${e.type === 'income' ? '+' : '-'} ₹${e.amount.toFixed(2)}`
+            ]),
+            headStyles: { fillColor: [13, 13, 13] },
+            didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Financial Events', 14, lastTableY + 10); }
+        });
+      }
+
+      docPdf.save(`expensio_report_${monthLabel}_${selectedYear}.pdf`);
+
+       toast({
+            title: "Export Successful",
+            description: "Your data has been exported as a PDF file.",
+        });
+
+    } catch (e) {
+      console.error(e);
+      toast({ variant: 'destructive', title: "Error", description: "Could not export PDF. Please try again." });
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -272,6 +335,10 @@ export default function ReportsPage() {
                     ))}
                 </SelectContent>
             </Select>
+             <Button variant="outline" onClick={handleExportPdf}>
+                <Download className="mr-2 h-4 w-4" />
+                Export as PDF
+             </Button>
         </div>
       </div>
 
@@ -348,5 +415,3 @@ export default function ReportsPage() {
   );
 
 }
-
-    

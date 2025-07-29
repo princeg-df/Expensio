@@ -18,12 +18,6 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -177,81 +171,6 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     }
   }
 
-  const handleExportPdf = async () => {
-    if (!user) return;
-
-    try {
-      const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
-      const transactionsSnapshot = await getDocs(transactionsQuery);
-      const transactions = transactionsSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, date: (doc.data().date as Timestamp).toDate() }));
-
-      const emisQuery = query(collection(db, `users/${user.uid}/emis`));
-      const emisSnapshot = await getDocs(emisQuery);
-      const emis = emisSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, startDate: (doc.data().startDate as Timestamp).toDate(), nextPaymentDate: (doc.data().nextPaymentDate as Timestamp).toDate() }));
-
-      const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
-      const autopaysSnapshot = await getDocs(autopaysQuery);
-      const autopays = autopaysSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, nextPaymentDate: (doc.data().nextPaymentDate as Timestamp).toDate() }));
-      
-      const userDocRef = doc(db, `users/${user.uid}`);
-      const userDocSnap = await getDoc(userDocRef);
-      const budget = userDocSnap.exists() ? userDocSnap.data().budget : 0;
-      
-      const docPdf = new jsPDF();
-      
-      docPdf.setFontSize(22);
-      docPdf.text("Expensio Financial Report", 14, 22);
-      docPdf.setFontSize(12);
-      docPdf.text(`Report for: ${user.email}`, 14, 30);
-      docPdf.text(`Date: ${new Date().toLocaleDateString()}`, 14, 36);
-      
-      let lastTableY = 40;
-
-      if(transactions.length > 0) {
-        autoTable(docPdf, {
-            startY: lastTableY + 10,
-            head: [['Date', 'Type', 'Category', 'Amount']],
-            body: transactions.map(t => [ t.date.toLocaleDateString(), t.type, t.category, t.amount.toFixed(2) ]),
-            headStyles: { fillColor: [13, 13, 13] },
-            didDrawPage: (data) => { docPdf.setFontSize(18); docPdf.text('Transactions', 14, data.settings.margin.top); }
-        });
-        lastTableY = (docPdf as any).lastAutoTable.finalY;
-      }
-      
-      if(emis.length > 0) {
-        autoTable(docPdf, {
-            startY: lastTableY + 15,
-            head: [['Name', 'Loan Amount', 'EMI Amount', 'Months Remaining', 'Start Date', 'Next Payment']],
-            body: emis.map(e => [ e.name, e.loanAmount.toFixed(2), e.amount.toFixed(2), e.monthsRemaining, e.startDate.toLocaleDateString(), e.nextPaymentDate.toLocaleDateString() ]),
-            headStyles: { fillColor: [13, 13, 13] },
-            didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Running EMIs', 14, lastTableY + 10); }
-        });
-        lastTableY = (docPdf as any).lastAutoTable.finalY;
-      }
-
-       if(autopays.length > 0) {
-        autoTable(docPdf, {
-            startY: lastTableY + 15,
-            head: [['Name', 'Category', 'Frequency', 'Amount', 'Next Payment']],
-            body: autopays.map(a => [ a.name, a.category, a.frequency, a.amount.toFixed(2), a.nextPaymentDate.toLocaleDateString() ]),
-            headStyles: { fillColor: [13, 13, 13] },
-            didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Autopay', 14, lastTableY + 10); }
-        });
-       }
-
-      docPdf.save('expensio_report.pdf');
-
-       toast({
-            title: "Export Successful",
-            description: "Your data has been exported as a PDF file.",
-        });
-
-    } catch (e) {
-      console.error(e);
-      toast({ variant: 'destructive', title: "Error", description: "Could not export PDF. Please try again." });
-    }
-  };
-
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -382,17 +301,9 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
               <Button variant="ghost" className="w-full justify-start" onClick={handleImportClick}>
                 <Upload className="mr-2 h-4 w-4" /> Import Data
               </Button>
-               <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" className="w-full justify-start">
-                        <Download className="mr-2 h-4 w-4" /> Export Data
-                     </Button>
-                  </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuItem onClick={handleExportJson}>Export as JSON</DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportPdf}>Export as PDF</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button variant="ghost" className="w-full justify-start" onClick={handleExportJson}>
+                  <Download className="mr-2 h-4 w-4" /> Export as JSON
+              </Button>
               <Separator />
                <Button variant="ghost" onClick={() => setIsClearingData(true)} className="w-full justify-start text-destructive hover:text-destructive">
                  <Trash2 className="mr-2 h-4 w-4" /> Clear All Data
@@ -434,5 +345,3 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     </>
   )
 }
-
-    
