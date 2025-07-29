@@ -20,6 +20,7 @@ import { MembersList } from '@/components/splitease/members-list';
 import { SettlementSummary } from '@/components/splitease/settlement-summary';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SettlementHistory } from '@/components/splitease/settlement-history';
 
 
 export default function GroupDetailPage() {
@@ -125,6 +126,29 @@ export default function GroupDetailPage() {
       setDeletingExpense(null);
     }
   }
+
+  const handleSettleUp = async (toUid: string, amount: number) => {
+    if (!user || !group) return;
+    const toMember = members.find(m => m.id === toUid);
+    if (!toMember) return;
+
+    try {
+        const settlementData = {
+            description: `Settlement with ${toMember.name}`,
+            amount: Number(amount),
+            paidBy: user.uid,
+            splitWith: [{ uid: toUid, amount: 0 }],
+            date: Timestamp.now(),
+            groupId: group.id,
+            isSettlement: true,
+        };
+        await addDoc(collection(db, 'groups', group.id, 'expenses'), settlementData);
+        toast({ title: 'Success', description: `Settlement of ₹${amount.toFixed(2)} with ${toMember.name} recorded.` });
+    } catch (error) {
+        console.error('Error settling up:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to record settlement.' });
+    }
+  }
   
   const { owes, owed } = useMemo(() => {
     if (!user || members.length === 0) {
@@ -174,11 +198,11 @@ export default function GroupDetailPage() {
     
     const userOwes = transactions
         .filter(t => t.from === user.uid)
-        .map(t => ({ name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
+        .map(t => ({ uid: t.to, name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
 
     const userIsOwed = transactions
         .filter(t => t.to === user.uid)
-        .map(t => ({ name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
+        .map(t => ({ uid: t.from, name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
     
     return { owes: userOwes, owed: userIsOwed };
     
@@ -224,7 +248,7 @@ export default function GroupDetailPage() {
                         <CardTitle>Expenses</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <ExpenseList expenses={expenses} members={members} onEdit={handleOpenEditDialog} onDelete={setDeletingExpense} />
+                        <ExpenseList expenses={expenses.filter(e => !e.isSettlement)} members={members} onEdit={handleOpenEditDialog} onDelete={setDeletingExpense} />
                     </CardContent>
                  </Card>
             </div>
@@ -235,15 +259,19 @@ export default function GroupDetailPage() {
                     </CardHeader>
                     <CardContent>
                         <Tabs defaultValue="settlements">
-                            <TabsList className="grid w-full grid-cols-2">
+                            <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="settlements">Settlements</TabsTrigger>
                                 <TabsTrigger value="members">Members</TabsTrigger>
+                                <TabsTrigger value="history">History</TabsTrigger>
                             </TabsList>
                             <TabsContent value="settlements" className="mt-4">
-                               <SettlementSummary owes={owes} owed={owed} />
+                               <SettlementSummary owes={owes} owed={owed} onSettleUp={handleSettleUp}/>
                             </TabsContent>
                             <TabsContent value="members" className="mt-4">
                                 <MembersList members={members}/>
+                            </TabsContent>
+                            <TabsContent value="history" className="mt-4">
+                                <SettlementHistory settlements={expenses.filter(e => e.isSettlement)} members={members} />
                             </TabsContent>
                         </Tabs>
                     </CardContent>

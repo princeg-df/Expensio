@@ -2,13 +2,15 @@
 'use client';
 
 import { ArrowDownRight, ArrowUpRight, CheckCircle } from 'lucide-react';
+import { Button } from '../ui/button';
 
 type SettlementSummaryProps = {
-  owes: { name: string; amount: number }[];
-  owed: { name: string; amount: number }[];
+  owes: { uid: string; name: string; amount: number }[];
+  owed: { uid: string; name: string; amount: number }[];
+  onSettleUp: (toUid: string, amount: number) => void;
 };
 
-export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
+export function SettlementSummary({ owes, owed, onSettleUp }: SettlementSummaryProps) {
   if (owes.length === 0 && owed.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-4 rounded-lg bg-muted/50 h-32">
@@ -30,7 +32,10 @@ export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
                    <ArrowUpRight className="h-5 w-5 text-destructive" />
                    <span className="font-medium text-destructive">{item.name}</span>
                 </div>
-                <span className="font-semibold text-destructive">₹{item.amount.toFixed(2)}</span>
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold text-destructive">₹{item.amount.toFixed(2)}</span>
+                    <Button size="sm" variant="destructive" className="h-7" onClick={() => onSettleUp(item.uid, item.amount)}>Settle</Button>
+                </div>
               </li>
             ))}
           </ul>

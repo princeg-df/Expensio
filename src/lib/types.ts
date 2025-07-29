@@ -1,6 +1,6 @@
 
 import type { Timestamp } from 'firebase/firestore';
-import { User } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 export type Transaction = {
   id: string;
@@ -66,4 +66,12 @@ export type GroupExpense = {
   paidBy: string; // UID of the user who paid
   splitWith: { uid: string; amount: number }[]; // Array of objects with UID and their share
   date: Timestamp;
+  isSettlement?: boolean;
 };
+
+export type Settlement = {
+    from: string; // UID
+    to: string; // UID
+    amount: number;
+    date: Timestamp;
+}

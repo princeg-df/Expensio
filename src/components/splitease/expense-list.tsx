@@ -25,7 +25,9 @@ export function ExpenseList({ expenses, members, onEdit, onDelete }: ExpenseList
     return members.find(m => m.id === uid);
   };
 
-  if (expenses.length === 0) {
+  const regularExpenses = expenses.filter(e => !e.isSettlement);
+
+  if (regularExpenses.length === 0) {
     return (
       <div className="flex h-48 flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-card">
         <h3 className="text-lg font-semibold">No Expenses Yet</h3>
@@ -36,7 +38,7 @@ export function ExpenseList({ expenses, members, onEdit, onDelete }: ExpenseList
 
   return (
     <ul className="space-y-4">
-      {expenses.map(expense => {
+      {regularExpenses.map(expense => {
         const paidByMember = getMember(expense.paidBy);
         return (
           <li key={expense.id} className="flex items-center gap-4 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
