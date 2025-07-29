@@ -9,7 +9,8 @@ Whether you're looking to save more, get out of debt, or simply understand where
 *   **Unified Dashboard**: Get an at-a-glance overview of your entire financial picture. The central dashboard visualizes your monthly budget, total expenses, remaining funds, and net cash flow.
 *   **Seamless Transaction Tracking**: Effortlessly log every income and expense with clear categorization to see exactly where your money is going.
 *   **Automated Payment Management**: Keep track of recurring payments like EMIs and autopay subscriptions to understand your fixed monthly commitments.
-*   **Insightful Reporting**: Dive deep into your financial habits with detailed monthly reports to identify trends and spot opportunities for savings.
+*   **Insightful Reporting**: Dive deep into your financial habits with detailed monthly reports. Filter by month and year to analyze your financial history.
+*   **SplitEase for Group Expenses**: Create groups, invite friends, and easily split shared expenses like trips or household bills. The app calculates who owes whom, simplifying settlements.
 *   **AI-Powered Financial Advice**: Receive short, personalized, and actionable tips based on your financial data to help improve your financial health.
 *   **Secure & Private**: Your financial data is protected with secure user authentication, ensuring your information remains private.
 *   **Full Data Control**: Easily export your financial history to both JSON and PDF formats, or import your data from a JSON backup file.
