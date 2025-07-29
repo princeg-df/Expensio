@@ -47,11 +47,10 @@ export default function GroupDetailPage() {
     
     const unsubscribeGroup = onSnapshot(groupDocRef, async (docSnap) => {
         if (docSnap.exists()) {
-            const groupData = docSnap.data() as Group;
+            const groupData = { id: docSnap.id, ...docSnap.data() } as Group;
             if (groupData.members.includes(user.uid)) {
-                setGroup({ id: docSnap.id, ...groupData });
+                setGroup(groupData);
 
-                // Fetch member details
                 const memberUsers: AppUser[] = [];
                 for (const memberId of groupData.members) {
                     const userDocRef = doc(db, 'users', memberId);
@@ -61,28 +60,28 @@ export default function GroupDetailPage() {
                     }
                 }
                 setMembers(memberUsers);
+                
+                const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'));
+                const unsubscribeExpenses = onSnapshot(expensesQuery, (querySnapshot) => {
+                    const groupExpenses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
+                    setExpenses(groupExpenses.sort((a, b) => b.date.seconds - a.date.seconds));
+                    setLoading(false);
+                });
 
+                return () => unsubscribeExpenses();
             } else {
                 router.push('/splitease');
             }
         } else {
             router.push('/splitease');
         }
-        setLoading(false);
     }, (error) => {
         console.error("Error fetching group details:", error);
         setLoading(false);
     });
-    
-    const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'));
-    const unsubscribeExpenses = onSnapshot(expensesQuery, (querySnapshot) => {
-        const groupExpenses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
-        setExpenses(groupExpenses.sort((a, b) => b.date.seconds - a.date.seconds));
-    });
 
     return () => {
         unsubscribeGroup();
-        unsubscribeExpenses();
     };
 
   }, [user, groupId, router]);
@@ -91,14 +90,13 @@ export default function GroupDetailPage() {
     if (!user || !group) return;
 
     const { description, amount, paidBy, splitWith } = data;
-    const splitAmount = amount / splitWith.length;
-
+    
     const expenseData = {
       groupId,
       description,
-      amount,
+      amount: Number(amount),
       paidBy,
-      splitWith: splitWith.map((uid: string) => ({ uid, amount: splitAmount })),
+      splitWith: splitWith.map((uid: string) => ({ uid, amount: Number(amount) / splitWith.length })),
       date: Timestamp.now(),
     };
     
@@ -134,7 +132,7 @@ export default function GroupDetailPage() {
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
+    if (!user || !members.length) return { owes: [], owed: [] };
   
     const balances: { [uid: string]: number } = {};
     members.forEach(m => { balances[m.id] = 0; });
@@ -151,9 +149,9 @@ export default function GroupDetailPage() {
     const debtors: { uid: string, amount: number }[] = [];
   
     Object.entries(balances).forEach(([uid, amount]) => {
-      if (amount > 0) {
+      if (amount > 0.01) {
         creditors.push({ uid, amount });
-      } else if (amount < 0) {
+      } else if (amount < -0.01) {
         debtors.push({ uid, amount: -amount });
       }
     });
@@ -304,5 +302,3 @@ export default function GroupDetailPage() {
     </>
   );
 }
-
-    
