@@ -135,51 +135,56 @@ export default function GroupDetailPage() {
   
   const { owes, owed } = useMemo(() => {
     if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
-
+  
     const balances: { [uid: string]: number } = {};
     members.forEach(m => { balances[m.id] = 0; });
-
+  
     expenses.forEach(expense => {
-        balances[expense.paidBy] += expense.amount;
-        expense.splitWith.forEach(share => {
-            balances[share.uid] -= share.amount;
-        });
+      balances[expense.paidBy] = (balances[expense.paidBy] || 0) + expense.amount;
+      const share = expense.amount / expense.splitWith.length;
+      expense.splitWith.forEach(split => {
+        balances[split.uid] = (balances[split.uid] || 0) - share;
+      });
     });
-
-    const debtors = Object.entries(balances)
-      .filter(([, amount]) => amount < 0)
-      .map(([uid, amount]) => ({ uid, amount: amount }));
-
-    const creditors = Object.entries(balances)
-      .filter(([, amount]) => amount > 0)
-      .map(([uid, amount]) => ({ uid, amount: amount }));
-    
-    const transactions = [];
-
-    while(debtors.length > 0 && creditors.length > 0) {
-      const currentDebtor = debtors[0];
-      const currentCreditor = creditors[0];
-      const amount = Math.min(-currentDebtor.amount, currentCreditor.amount);
-
-      transactions.push({ from: currentDebtor.uid, to: currentCreditor.uid, amount });
-
-      currentDebtor.amount += amount;
-      currentCreditor.amount -= amount;
-
-      if(Math.abs(currentDebtor.amount) < 0.01) debtors.shift();
-      if(Math.abs(currentCreditor.amount) < 0.01) creditors.shift();
+  
+    const creditors: { uid: string, amount: number }[] = [];
+    const debtors: { uid: string, amount: number }[] = [];
+  
+    Object.entries(balances).forEach(([uid, amount]) => {
+      if (amount > 0) {
+        creditors.push({ uid, amount });
+      } else if (amount < 0) {
+        debtors.push({ uid, amount: -amount });
+      }
+    });
+  
+    const transactions: { from: string, to: string, amount: number }[] = [];
+  
+    let i = 0, j = 0;
+    while (i < creditors.length && j < debtors.length) {
+      const creditor = creditors[i];
+      const debtor = debtors[j];
+      const amount = Math.min(creditor.amount, debtor.amount);
+  
+      transactions.push({ from: debtor.uid, to: creditor.uid, amount });
+  
+      creditor.amount -= amount;
+      debtor.amount -= amount;
+  
+      if (creditor.amount < 0.01) i++;
+      if (debtor.amount < 0.01) j++;
     }
     
     const owesList = transactions
       .filter(t => t.from === user.id)
       .map(t => ({ name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
-
+  
     const owedList = transactions
       .filter(t => t.to === user.id)
       .map(t => ({ name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
       
     return { owes: owesList, owed: owedList };
-
+  
   }, [expenses, members, user]);
 
 
@@ -299,3 +304,5 @@ export default function GroupDetailPage() {
     </>
   );
 }
+
+    

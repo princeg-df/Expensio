@@ -2,8 +2,6 @@
 'use client';
 
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
 
 type SettlementSummaryProps = {
   owes: { name: string; amount: number }[];
@@ -55,3 +53,5 @@ export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
     </div>
   );
 }
+
+    
