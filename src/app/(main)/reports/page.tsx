@@ -254,11 +254,11 @@ export default function ReportsPage() {
       docPdf.text(`Report for: ${user.email}`, 14, 30);
       
       const summaryData = [
-        ['Monthly Budget', `\u20B9${budget.toFixed(2)}`],
-        ['Total Income', `\u20B9${totalIncome.toFixed(2)}`],
-        ['Total Expenses', `\u20B9${totalExpenses.toFixed(2)}`],
-        ['Remaining Budget', `\u20B9${remainingAmount.toFixed(2)}`],
-        ['Net Flow', `\u20B9${netFlow.toFixed(2)}`],
+        ['Monthly Budget', `Rs. ${budget.toFixed(2)}`],
+        ['Total Income', `Rs. ${totalIncome.toFixed(2)}`],
+        ['Total Expenses', `Rs. ${totalExpenses.toFixed(2)}`],
+        ['Remaining Budget', `Rs. ${remainingAmount.toFixed(2)}`],
+        ['Net Flow', `Rs. ${netFlow.toFixed(2)}`],
       ];
 
       autoTable(docPdf, {
@@ -279,7 +279,7 @@ export default function ReportsPage() {
                 e.description, 
                 e.category,
                 e.type,
-                `${e.type === 'income' ? '+' : '-'} \u20B9${e.amount.toFixed(2)}`
+                `${e.type === 'income' ? '+' : '-'} Rs. ${e.amount.toFixed(2)}`
             ]),
             headStyles: { fillColor: [13, 13, 13] },
             didDrawPage: (data) => { if(data.pageNumber > 1) return; docPdf.setFontSize(18); docPdf.text('Financial Events', 14, lastTableY + 10); }
@@ -415,3 +415,5 @@ export default function ReportsPage() {
   );
 
 }
+
+    
