@@ -152,32 +152,29 @@ export default function GroupDetailPage() {
       .filter(([, amount]) => amount > 0.01)
       .map(([uid, amount]) => ({ uid, amount }));
 
-    const userOwes: { name: string; amount: number }[] = [];
-    const userIsOwed: { name: string; amount: number }[] = [];
-    
-    if (balances[user.uid] < 0) { // User is a debtor
-        let userDebt = -balances[user.uid];
-        for (const creditor of creditors) {
-            if (userDebt <= 0) break;
-            const amountToPay = Math.min(userDebt, creditor.amount);
-            const creditorMember = members.find(m => m.id === creditor.uid);
-            if (creditorMember) {
-                 userOwes.push({ name: creditorMember.name, amount: amountToPay });
-            }
-            userDebt -= amountToPay;
-        }
-    } else if (balances[user.uid] > 0) { // User is a creditor
-        let userCredit = balances[user.uid];
-        for (const debtor of debtors) {
-            if (userCredit <= 0) break;
-            const amountToReceive = Math.min(userCredit, debtor.amount);
-            const debtorMember = members.find(m => m.id === debtor.uid);
-            if (debtorMember) {
-                userIsOwed.push({ name: debtorMember.name, amount: amountToReceive });
-            }
-            userCredit -= amountToReceive;
-        }
+    const transactions = [];
+
+    while (debtors.length > 0 && creditors.length > 0) {
+      const debtor = debtors[0];
+      const creditor = creditors[0];
+      const amount = Math.min(debtor.amount, creditor.amount);
+
+      transactions.push({ from: debtor.uid, to: creditor.uid, amount });
+
+      debtor.amount -= amount;
+      creditor.amount -= amount;
+
+      if (debtor.amount < 0.01) debtors.shift();
+      if (creditor.amount < 0.01) creditors.shift();
     }
+    
+    const userOwes = transactions
+        .filter(t => t.from === user.uid)
+        .map(t => ({ name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
+
+    const userIsOwed = transactions
+        .filter(t => t.to === user.uid)
+        .map(t => ({ name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
     
     return { owes: userOwes, owed: userIsOwed };
     
