@@ -160,7 +160,9 @@ export default function GroupDetailPage() {
         if(m.id) balances[m.id] = 0;
     });
 
-    expenses.forEach(expense => {
+    const activeExpenses = expenses.filter(expense => !expense.isSettlement);
+
+    activeExpenses.forEach(expense => {
       if(balances[expense.paidBy] !== undefined) {
          balances[expense.paidBy] += expense.amount;
       }
@@ -271,7 +273,7 @@ export default function GroupDetailPage() {
                                 <MembersList members={members}/>
                             </TabsContent>
                             <TabsContent value="history" className="mt-4">
-                                <SettlementHistory settlements={expenses.filter(e => e.isSettlement)} members={members} />
+                                <SettlementHistory settlements={expenses.filter(e => !!e.isSettlement)} members={members} />
                             </TabsContent>
                         </Tabs>
                     </CardContent>
