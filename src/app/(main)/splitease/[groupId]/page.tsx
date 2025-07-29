@@ -41,7 +41,7 @@ export default function GroupDetailPage() {
     if (!user || !groupId) return;
 
     const groupDocRef = doc(db, 'groups', groupId);
-    const unsubscribeGroup = onSnapshot(groupDocRef, (docSnap) => {
+    const unsubscribeGroup = onSnapshot(groupDocRef, async (docSnap) => {
       if (docSnap.exists()) {
         const groupData = { id: docSnap.id, ...docSnap.data() } as Group;
         if (!groupData.members.includes(user.uid)) {
@@ -52,17 +52,17 @@ export default function GroupDetailPage() {
 
         const memberIds = groupData.members;
         const membersPromises = memberIds.map(id => getDoc(doc(db, 'users', id)));
-        Promise.all(membersPromises).then(memberDocs => {
-          const membersData = memberDocs
+        const memberDocs = await Promise.all(membersPromises);
+        const membersData = memberDocs
             .filter(doc => doc.exists())
             .map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
-          setMembers(membersData);
-        });
+        setMembers(membersData);
 
       } else {
         setGroup(null);
         notFound();
       }
+      setLoading(false);
     });
 
     const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'));
@@ -71,35 +71,28 @@ export default function GroupDetailPage() {
       setExpenses(expensesData.sort((a,b) => b.date.toMillis() - a.date.toMillis()));
     });
     
-    setLoading(false);
-
     return () => {
       unsubscribeGroup();
       unsubscribeExpenses();
     };
 
-  }, [user, groupId, router, notFound]);
+  }, [user, groupId, router]);
 
   const handleAddOrUpdateExpense = async (data: any, expenseId?: string) => {
     if (!user || !group) return;
 
     try {
-      const splitAmount = data.amount / data.splitWith.length;
       const expenseData = {
         description: data.description,
-        amount: data.amount,
+        amount: Number(data.amount),
         paidBy: data.paidBy,
-        splitWith: data.splitWith.map((uid: string) => ({ uid, amount: splitAmount })),
+        splitWith: data.splitWith.map((uid: string) => ({ uid })),
         date: Timestamp.now(),
         groupId: group.id,
       };
       
-      const expenseRef = expenseId 
-        ? doc(db, 'groups', group.id, 'expenses', expenseId)
-        : doc(collection(db, 'groups', group.id, 'expenses'));
-
       if (expenseId) {
-        await updateDoc(expenseRef, expenseData);
+        await updateDoc(doc(db, 'groups', group.id, 'expenses', expenseId), expenseData);
         toast({ title: 'Success', description: 'Expense updated successfully.' });
       } else {
         await addDoc(collection(db, 'groups', group.id, 'expenses'), expenseData);
@@ -134,12 +127,16 @@ export default function GroupDetailPage() {
     }
 
     const balances: { [key: string]: number } = {};
-    members.forEach(m => balances[m.id] = 0);
+    members.forEach(m => {
+        if(m.id) balances[m.id] = 0;
+    });
 
     expenses.forEach(expense => {
+      if (!balances[expense.paidBy]) balances[expense.paidBy] = 0;
       balances[expense.paidBy] += expense.amount;
       const share = expense.amount / expense.splitWith.length;
       expense.splitWith.forEach(split => {
+        if (!balances[split.uid]) balances[split.uid] = 0;
         balances[split.uid] -= share;
       });
     });
@@ -190,7 +187,7 @@ export default function GroupDetailPage() {
   }
   
   if (!group) {
-    return <div className="flex h-screen items-center justify-center">Group not found.</div>;
+    return notFound();
   }
 
   return (
@@ -213,7 +210,7 @@ export default function GroupDetailPage() {
             </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
             <div className="lg:col-span-2 space-y-6">
                  <Card>
                     <CardHeader>
@@ -271,3 +268,5 @@ export default function GroupDetailPage() {
     </>
   );
 }
+
+    
