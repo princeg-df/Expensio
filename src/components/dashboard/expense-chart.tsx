@@ -1,9 +1,11 @@
+
 'use client';
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { useMemo } from 'react';
+import { startOfMonth, endOfMonth, isWithinInterval, isAfter } from 'date-fns';
 
 type ExpenseChartProps = {
   transactions: Transaction[];
@@ -13,56 +15,47 @@ type ExpenseChartProps = {
 
 export function ExpenseChart({ transactions, emis, autopays }: ExpenseChartProps) {
     const chartData = useMemo(() => {
-        const data: { [key: string]: number } = {};
+        const data: { name: string, total: number }[] = [];
         const now = new Date();
 
-        // Initialize data for the last 6 months
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const monthName = d.toLocaleString('default', { month: 'short' });
             const year = d.getFullYear();
             const key = `${monthName} '${String(year).slice(2)}'`;
-            data[key] = 0;
+            
+            const interval = { start: startOfMonth(d), end: endOfMonth(d) };
+
+            const expensesFromTransactions = transactions
+                .filter(t => t.type === 'expense' && t.date && isWithinInterval(t.date.toDate(), interval))
+                .reduce((sum, t) => sum + t.amount, 0);
+
+            const emisAmount = emis.reduce((sum, emi) => {
+                if (emi.monthsRemaining > 0 && emi.startDate && !isAfter(emi.startDate.toDate(), interval.end)) {
+                    return sum + emi.amount;
+                }
+                return sum;
+            }, 0);
+
+            const autopaysAmount = autopays.reduce((sum, autopay) => {
+                if (autopay.startDate && !isAfter(autopay.startDate.toDate(), interval.end)) {
+                    let monthlyAmount = 0;
+                    switch (autopay.frequency) {
+                        case 'Monthly': monthlyAmount = autopay.amount; break;
+                        case 'Quarterly': monthlyAmount = autopay.amount / 3; break;
+                        case 'Half-Yearly': monthlyAmount = autopay.amount / 6; break;
+                        case 'Yearly': monthlyAmount = autopay.amount / 12; break;
+                    }
+                    return sum + monthlyAmount;
+                }
+                return sum;
+            }, 0);
+            
+            const total = expensesFromTransactions + emisAmount + autopaysAmount;
+            data.push({ name: key, total });
         }
 
-        // Add variable expenses from transactions
-        transactions.forEach(t => {
-            if (t.type === 'expense') {
-                const transactionDate = t.date.toDate();
-                const monthName = transactionDate.toLocaleString('default', { month: 'short' });
-                const year = transactionDate.getFullYear();
-                const key = `${monthName} '${String(year).slice(2)}'`;
-                if (key in data) {
-                    data[key] += t.amount;
-                }
-            }
-        });
-
-        // Add fixed expenses from EMIs and Autopays
-        Object.keys(data).forEach(key => {
-            emis.forEach(emi => {
-                data[key] += emi.amount;
-            });
-
-            autopays.forEach(autopay => {
-                let monthlyAmount = 0;
-                if (autopay.frequency === 'Monthly') {
-                    monthlyAmount = autopay.amount;
-                } else if (autopay.frequency === 'Quarterly') {
-                    monthlyAmount = autopay.amount / 3;
-                } else if (autopay.frequency === 'Half-Yearly') {
-                    monthlyAmount = autopay.amount / 6;
-                } else if (autopay.frequency === 'Yearly') {
-                    monthlyAmount = autopay.amount / 12;
-                }
-                data[key] += monthlyAmount;
-            });
-        });
-
-        return Object.keys(data).map(key => ({
-            name: key,
-            total: data[key],
-        }));
+        return data;
 
     }, [transactions, emis, autopays]);
 
