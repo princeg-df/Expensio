@@ -31,6 +31,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader } from '@/components/ui/loader';
 import { UserPlus, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { AccountSwitcher } from '@/components/layout/account-switcher';
+
 
 const inviteFormSchema = z.object({
   email: z.string().email('Please enter a valid email address.'),
@@ -38,7 +40,7 @@ const inviteFormSchema = z.object({
 });
 
 export default function SharingPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isSharedView } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [outgoingShares, setOutgoingShares] = useState<Share[]>([]);
@@ -110,22 +112,21 @@ export default function SharingPage() {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where("email", "==", values.email));
       const querySnapshot = await getDocs(q);
-      let sharedWithUid = '';
-      if (!querySnapshot.empty) {
-        sharedWithUid = querySnapshot.docs[0].id;
-      }
       
-      const shareId = `${user.uid}_${sharedWithUid || values.email}`;
-      
-      await addDoc(collection(db, 'shares'), {
+      const shareData: Omit<Share, 'id'> = {
         ownerUid: user.uid,
         ownerEmail: user.email,
         sharedWithEmail: values.email,
-        sharedWithUid: sharedWithUid || null,
         role: values.role,
         status: 'pending',
         createdAt: Timestamp.now(),
-      });
+      };
+
+      if (!querySnapshot.empty) {
+        shareData.sharedWithUid = querySnapshot.docs[0].id;
+      }
+      
+      await addDoc(collection(db, 'shares'), shareData);
       toast({ title: 'Success', description: 'Invitation sent successfully.' });
       form.reset();
     } catch (error) {
@@ -146,26 +147,17 @@ export default function SharingPage() {
     }
   };
 
-  const handleInvitation = async (shareId: string, accept: boolean) => {
+  const handleInvitation = async (share: Share, accept: boolean) => {
     if(!user) return;
     try {
         if (accept) {
-            const shareRef = doc(db, 'shares', shareId);
-            const newShareId = `${(await getDoc(shareRef)).data()?.ownerUid}_${user.uid}`;
-            const newShareRef = doc(db, 'shares', newShareId);
-
-            const batch = writeBatch(db);
-            batch.set(newShareRef, {
+            await updateDoc(doc(db, 'shares', share.id), {
                 status: 'accepted',
                 sharedWithUid: user.uid,
-            }, { merge: true });
-            batch.delete(shareRef);
-
-            await batch.commit();
-
+            });
             toast({ title: 'Success', description: 'Invitation accepted.' });
         } else {
-            await deleteDoc(doc(db, 'shares', shareId));
+            await deleteDoc(doc(db, 'shares', share.id));
             toast({ title: 'Success', description: 'Invitation declined.' });
         }
     } catch (error) {
@@ -185,140 +177,154 @@ export default function SharingPage() {
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Account Sharing</h1>
-        <p className="text-muted-foreground">Share your financial data with family or an advisor.</p>
-      </div>
+        {isSharedView ? <AccountSwitcher /> : (
+            <div>
+                <h1 className="text-3xl font-bold tracking-tight">Account Sharing</h1>
+                <p className="text-muted-foreground">Share your financial data with family or an advisor.</p>
+            </div>
+        )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Invite Someone</CardTitle>
-          <CardDescription>Enter the email address of the person you want to share your account with.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleInvite)} className="flex flex-col sm:flex-row items-end gap-4">
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem className="flex-1 w-full">
-                    <FormLabel>Email</FormLabel>
-                    <FormControl>
-                      <Input placeholder="name@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem className="w-full sm:w-auto">
-                    <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger className="w-full sm:w-[120px]">
-                          <SelectValue placeholder="Select a role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="viewer">Viewer</SelectItem>
-                        <SelectItem value="editor">Editor</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-                <UserPlus className="mr-2 h-4 w-4" />
-                Send Invite
-              </Button>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
-
-      <div className="grid md:grid-cols-2 gap-8">
-        <Card>
-            <CardHeader>
-                <CardTitle>Shared By You</CardTitle>
-                <CardDescription>Accounts you have shared with others.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Email</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {outgoingShares.length > 0 ? outgoingShares.map(share => (
-                            <TableRow key={share.id}>
-                                <TableCell className="font-medium break-all">{share.sharedWithEmail}</TableCell>
-                                <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
-                                <TableCell><Badge variant={share.status === 'pending' ? 'outline' : 'default'} className={share.status === 'accepted' ? 'bg-green-500/20 text-green-400 border-green-500/20' : ''}>{share.status}</Badge></TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleRevoke(share.id)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        )) : (
-                           <TableRow>
-                               <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">You haven't shared your account with anyone.</TableCell>
-                           </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-        
-         <Card>
-            <CardHeader>
-                <CardTitle>Shared With You</CardTitle>
-                <CardDescription>Accounts that have been shared with you.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>From</TableHead>
-                            <TableHead>Role</TableHead>
-                            <TableHead className="text-right">Action</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                         {incomingShares.filter(s => s.status === 'pending').length > 0 ? incomingShares.filter(s => s.status === 'pending').map(share => (
-                            <TableRow key={share.id}>
-                                <TableCell className="font-medium break-all">{share.ownerEmail}</TableCell>
-                                <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
-                                <TableCell className="text-right space-x-1">
-                                    <Button variant="ghost" size="icon" onClick={() => handleInvitation(share.id, true)}>
-                                        <CheckCircle className="h-4 w-4 text-green-500"/>
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleInvitation(share.id, false)}>
-                                        <XCircle className="h-4 w-4 text-destructive"/>
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                         )) : (
-                            <TableRow>
-                               <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No pending invitations.</TableCell>
-                           </TableRow>
-                         )}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-      </div>
-
+        {isSharedView ? (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Feature Disabled</CardTitle>
+                    <CardDescription>Sharing management is not available when viewing a shared account.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">Please switch back to your own account to manage sharing settings.</p>
+                </CardContent>
+             </Card>
+        ) : (
+            <>
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Invite Someone</CardTitle>
+                    <CardDescription>Enter the email address of the person you want to share your account with.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleInvite)} className="flex flex-col sm:flex-row items-end gap-4">
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                            <FormItem className="flex-1 w-full">
+                                <FormLabel>Email</FormLabel>
+                                <FormControl>
+                                <Input placeholder="name@example.com" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="role"
+                            render={({ field }) => (
+                            <FormItem className="w-full sm:w-auto">
+                                <FormLabel>Role</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                    <SelectTrigger className="w-full sm:w-[120px]">
+                                    <SelectValue placeholder="Select a role" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="viewer">Viewer</SelectItem>
+                                    <SelectItem value="editor">Editor</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                        <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            Send Invite
+                        </Button>
+                        </form>
+                    </Form>
+                    </CardContent>
+                </Card>
+                <div className="grid md:grid-cols-2 gap-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Shared By You</CardTitle>
+                            <CardDescription>Accounts you have shared with others.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead>Status</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {outgoingShares.length > 0 ? outgoingShares.map(share => (
+                                        <TableRow key={share.id}>
+                                            <TableCell className="font-medium break-all">{share.sharedWithEmail}</TableCell>
+                                            <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
+                                            <TableCell><Badge variant={share.status === 'pending' ? 'outline' : 'default'} className={share.status === 'accepted' ? 'bg-green-500/20 text-green-400 border-green-500/20' : ''}>{share.status}</Badge></TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleRevoke(share.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">You haven't shared your account with anyone.</TableCell>
+                                    </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                    
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Invitations</CardTitle>
+                            <CardDescription>Invitations to access other accounts.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>From</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {incomingShares.filter(s => s.status === 'pending').length > 0 ? incomingShares.filter(s => s.status === 'pending').map(share => (
+                                        <TableRow key={share.id}>
+                                            <TableCell className="font-medium break-all">{share.ownerEmail}</TableCell>
+                                            <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
+                                            <TableCell className="text-right space-x-1">
+                                                <Button variant="ghost" size="icon" onClick={() => handleInvitation(share, true)}>
+                                                    <CheckCircle className="h-4 w-4 text-green-500"/>
+                                                </Button>
+                                                <Button variant="ghost" size="icon" onClick={() => handleInvitation(share, false)}>
+                                                    <XCircle className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow>
+                                        <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No pending invitations.</TableCell>
+                                    </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
+                </div>
+            </>
+        )}
     </div>
   );
 }

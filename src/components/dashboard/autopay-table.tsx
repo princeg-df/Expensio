@@ -7,8 +7,8 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 type AutopayTableProps = {
   autopays: Autopay[];
-  onEdit: (autopay: Autopay) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (autopay: Autopay) => void;
+  onDelete?: (id: string) => void;
 };
 
 export function AutopayTable({ autopays, onEdit, onDelete }: AutopayTableProps) {
@@ -42,14 +42,20 @@ export function AutopayTable({ autopays, onEdit, onDelete }: AutopayTableProps) 
               </TableCell>
               <TableCell className="text-right p-2 align-top">
                 &#8377;{autopay.amount.toFixed(2)}
-                  <div className="flex justify-end mt-1">
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(autopay)} className="ml-2 h-7 w-7">
-                          <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => onDelete(autopay.id)} className="h-7 w-7 text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                      </Button>
-                  </div>
+                  {(onEdit || onDelete) && (
+                    <div className="flex justify-end mt-1">
+                      {onEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(autopay)} className="ml-2 h-7 w-7">
+                              <Pencil className="h-4 w-4" />
+                          </Button>
+                      )}
+                      {onDelete && (
+                          <Button variant="ghost" size="icon" onClick={() => onDelete(autopay.id)} className="h-7 w-7 text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                          </Button>
+                      )}
+                    </div>
+                  )}
               </TableCell>
             </TableRow>
           )})}

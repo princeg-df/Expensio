@@ -9,8 +9,8 @@ import { Button } from '../ui/button';
 
 type TransactionTableProps = {
   transactions: Transaction[];
-  onEdit: (transaction: Transaction) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (transaction: Transaction) => void;
+  onDelete?: (id: string) => void;
 };
 
 const categoryIcons: { [key: string]: React.ComponentType<{ className?: string }> } = {
@@ -39,7 +39,7 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
               <TableHead>Category</TableHead>
               <TableHead>Date</TableHead>
               <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="w-[80px]"></TableHead>
+              {(onEdit || onDelete) && <TableHead className="w-[80px]"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -82,14 +82,20 @@ export function TransactionTable({ transactions, onEdit, onDelete }: Transaction
                   )}>
                     {transaction.type === 'expense' ? '-' : '+'} ₹{transaction.amount.toFixed(2)}
                   </TableCell>
-                  <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => onEdit(transaction)}>
-                          <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => onDelete(transaction.id)}>
-                          <Trash2 className="h-4 w-4" />
-                      </Button>
-                  </TableCell>
+                  {(onEdit || onDelete) && (
+                    <TableCell className="text-right">
+                        {onEdit && (
+                            <Button variant="ghost" size="icon" onClick={() => onEdit(transaction)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {onDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => onDelete(transaction.id)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </TableCell>
+                  )}
                 </TableRow>
               )})
             )}

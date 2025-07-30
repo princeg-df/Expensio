@@ -23,10 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AccountSwitcher } from '@/components/layout/account-switcher';
 
 
 export default function SplitEasePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isSharedView } = useAuth();
   const { toast } = useToast();
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [groups, setGroups] = useState<Group[]>([]);
@@ -122,23 +123,35 @@ export default function SplitEasePage() {
   return (
     <>
       <div className="space-y-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">SplitEase</h1>
-            <p className="text-muted-foreground">
-              Create groups, add expenses, and split bills with friends.
-            </p>
-          </div>
-          <Button onClick={() => setIsCreateGroupOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create Group
-          </Button>
-        </div>
+        {isSharedView ? <AccountSwitcher /> : (
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">SplitEase</h1>
+                <p className="text-muted-foreground">
+                  Create groups, add expenses, and split bills with friends.
+                </p>
+              </div>
+              <Button onClick={() => setIsCreateGroupOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create Group
+              </Button>
+            </div>
+        )}
         
         {authLoading || loading ? (
             <div className="flex h-64 items-center justify-center">
             <Loader />
             </div>
+        ) : isSharedView ? (
+             <Card className="h-64">
+                <CardHeader>
+                    <CardTitle>Feature Disabled</CardTitle>
+                    <CardDescription>SplitEase is not available when viewing a shared account.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">Please switch back to your own account to manage expense groups.</p>
+                </CardContent>
+             </Card>
         ) : groups.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-card h-64">
                 <div className="text-center">

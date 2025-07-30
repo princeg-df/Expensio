@@ -6,8 +6,8 @@ import { Pencil, Trash2 } from 'lucide-react';
 
 type EmiTableProps = {
   emis: Emi[];
-  onEdit: (emi: Emi) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (emi: Emi) => void;
+  onDelete?: (id: string) => void;
 };
 
 export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
@@ -39,14 +39,20 @@ export function EmiTable({ emis, onEdit, onDelete }: EmiTableProps) {
               </TableCell>
               <TableCell className="text-right p-2 align-top">
                 &#8377;{emi.amount.toFixed(2)}
-                 <div className="flex justify-end mt-1">
-                    <Button variant="ghost" size="icon" onClick={() => onEdit(emi)} className="ml-2 h-7 w-7">
-                        <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)} className="h-7 w-7 text-destructive hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </div>
+                 {(onEdit || onDelete) && (
+                    <div className="flex justify-end mt-1">
+                      {onEdit && (
+                        <Button variant="ghost" size="icon" onClick={() => onEdit(emi)} className="ml-2 h-7 w-7">
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onDelete && (
+                        <Button variant="ghost" size="icon" onClick={() => onDelete(emi.id)} className="h-7 w-7 text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                 )}
               </TableCell>
             </TableRow>
           )})}

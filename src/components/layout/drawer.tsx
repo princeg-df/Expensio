@@ -1,15 +1,15 @@
 
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
-import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
+import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc, where, onSnapshot } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User, Share2 } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User, Share2, LogIn } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -29,12 +29,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import type { Transaction, Emi, Autopay } from '@/lib/types';
+import type { Transaction, Emi, Autopay, Share } from '@/lib/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import Link from 'next/link';
 import { ChangePasswordDialog } from './change-password-dialog';
 import { Skeleton } from '../ui/skeleton';
+import { AccountSwitcher } from './account-switcher';
 
 type AppDrawerProps = {
     isOpen: boolean;
@@ -47,26 +48,34 @@ const ADMIN_EMAIL = 'princegupta619@gmail.com';
 export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user, setViewingUid, setPermissionLevel } = useAuth();
   const { toast } = useToast();
   const [isClearingData, setIsClearingData] = useState(false);
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [userName, setUserName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [sharedWithYou, setSharedWithYou] = useState<Share[]>([]);
 
   useEffect(() => {
-    async function fetchUserName() {
-        if (user) {
-            const userDocRef = doc(db, 'users', user.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                setUserName(userDocSnap.data().name || 'Guest');
-            }
+    if (!user || !isOpen) return;
+
+    const fetchUserName = async () => {
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+            setUserName(userDocSnap.data().name || 'Guest');
         }
-    }
-    if(isOpen) {
-        fetchUserName();
-    }
+    };
+    
+    fetchUserName();
+    
+    const sharesQuery = query(collection(db, 'shares'), where('sharedWithEmail', '==', user.email), where('status', '==', 'accepted'));
+    const unsubscribe = onSnapshot(sharesQuery, (snapshot) => {
+        const shares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Share));
+        setSharedWithYou(shares);
+    });
+
+    return () => unsubscribe();
   }, [user, isOpen]);
 
   const handleLogout = async () => {
@@ -74,6 +83,20 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
     onOpenChange(false);
     router.push('/login');
   };
+  
+  const handleSwitchAccount = (share: Share) => {
+    setViewingUid(share.ownerUid);
+    setPermissionLevel(share.role);
+    onOpenChange(false);
+    router.push('/dashboard');
+  };
+
+  const handleSwitchToOwnAccount = () => {
+    setViewingUid(user!.uid);
+    setPermissionLevel(null);
+    onOpenChange(false);
+    router.push('/dashboard');
+  }
 
   const handleClearAllData = async () => {
     if (!user) return;
@@ -251,7 +274,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
             <SheetTitle><ExpensioLogo /></SheetTitle>
              {userName ? (
               <SheetDescription asChild>
-                <div>
+                <div className="cursor-pointer" onClick={handleSwitchToOwnAccount}>
                   <div className="font-semibold text-foreground">{userName}</div>
                   <div className="text-xs">{user?.email}</div>
                 </div>
@@ -263,7 +286,10 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
               </div>
             )}
           </SheetHeader>
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+            
+            <AccountSwitcher />
+            
             <nav className="flex flex-col gap-2">
                <Link href="/dashboard" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/dashboard' ? 'secondary' : 'ghost'} className="w-full justify-start">
@@ -276,7 +302,7 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                 </Button>
               </Link>
               <Link href="/splitease" onClick={() => onOpenChange(false)}>
-                <Button variant={pathname === '/splitease' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                <Button variant={pathname.startsWith('/splitease') ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Users className="mr-2 h-4 w-4" /> SplitEase
                 </Button>
               </Link>
@@ -292,7 +318,25 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
                     </Button>
                 </Link>
                )}
-              <Separator />
+            </nav>
+
+            {sharedWithYou.length > 0 && (
+                <>
+                    <Separator />
+                    <h3 className="text-sm font-semibold text-muted-foreground px-2 pt-2">Shared With You</h3>
+                    <nav className="flex flex-col gap-2">
+                        {sharedWithYou.map(share => (
+                            <Button key={share.id} variant='ghost' className="w-full justify-start" onClick={() => handleSwitchAccount(share)}>
+                                <LogIn className="mr-2 h-4 w-4" /> {share.ownerEmail}
+                            </Button>
+                        ))}
+                    </nav>
+                </>
+            )}
+
+            <Separator/>
+            <h3 className="text-sm font-semibold text-muted-foreground px-2 pt-2">Account</h3>
+            <nav className="flex flex-col gap-2">
                <Link href="/profile" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/profile' ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <User className="mr-2 h-4 w-4" /> Profile
