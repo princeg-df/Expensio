@@ -40,7 +40,7 @@ const inviteFormSchema = z.object({
 });
 
 export default function SharingPage() {
-  const { user, loading: authLoading, isSharedView } = useAuth();
+  const { user, loading: authLoading, isSharedView, setViewingUid } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [outgoingShares, setOutgoingShares] = useState<Share[]>([]);
@@ -150,6 +150,21 @@ export default function SharingPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Failed to revoke access.' });
     }
   };
+  
+  const handleLeaveShare = async (share: Share) => {
+     if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'shares', share.id));
+       // If currently viewing the deleted share, switch back to own account
+      if (isSharedView && share.ownerUid === user.uid) {
+        setViewingUid(user.uid);
+      }
+      toast({ title: 'Success', description: 'You have left the shared account.' });
+    } catch (error) {
+      console.error('Error leaving share:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to leave the shared account.' });
+    }
+  }
 
   const handleInvitation = async (share: Share, accept: boolean) => {
     if(!user) return;
@@ -169,6 +184,9 @@ export default function SharingPage() {
          toast({ variant: 'destructive', title: 'Error', description: 'Failed to respond to invitation.' });
     }
   }
+
+  const pendingInvitations = incomingShares.filter(s => s.status === 'pending');
+  const acceptedShares = incomingShares.filter(s => s.status === 'accepted');
 
 
   if (authLoading || loading) {
@@ -288,7 +306,40 @@ export default function SharingPage() {
                             </Table>
                         </CardContent>
                     </Card>
-                    
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Accounts Shared With Me</CardTitle>
+                            <CardDescription>Accounts you have access to.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                             <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Owner</TableHead>
+                                        <TableHead>Role</TableHead>
+                                        <TableHead className="text-right">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                     {acceptedShares.length > 0 ? acceptedShares.map(share => (
+                                        <TableRow key={share.id}>
+                                            <TableCell className="font-medium break-all">{share.ownerEmail}</TableCell>
+                                            <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="icon" onClick={() => handleLeaveShare(share)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )) : (
+                                        <TableRow>
+                                        <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">No accounts are shared with you.</TableCell>
+                                    </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </CardContent>
+                    </Card>
                     <Card>
                         <CardHeader>
                             <CardTitle>Invitations</CardTitle>
@@ -304,7 +355,7 @@ export default function SharingPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {incomingShares.filter(s => s.status === 'pending').length > 0 ? incomingShares.filter(s => s.status === 'pending').map(share => (
+                                    {pendingInvitations.length > 0 ? pendingInvitations.map(share => (
                                         <TableRow key={share.id}>
                                             <TableCell className="font-medium break-all">{share.ownerEmail}</TableCell>
                                             <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
@@ -332,4 +383,5 @@ export default function SharingPage() {
     </div>
   );
 }
+
 
