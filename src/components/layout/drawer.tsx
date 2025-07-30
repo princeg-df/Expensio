@@ -9,7 +9,7 @@ import { useAuth } from '@/providers/app-provider';
 import { collection, getDocs, query, writeBatch, doc, getDoc, Timestamp, setDoc } from 'firebase/firestore';
 import { ExpensioLogo } from '@/components/expensio-logo';
 import { Button } from '@/components/ui/button';
-import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User } from 'lucide-react';
+import { LogOut, LineChart, Trash2, Download, Upload, Lock, Shield, LayoutDashboard, Users, User, Share2 } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -278,6 +278,11 @@ export function AppDrawer({ isOpen, onOpenChange }: AppDrawerProps) {
               <Link href="/splitease" onClick={() => onOpenChange(false)}>
                 <Button variant={pathname === '/splitease' ? 'secondary' : 'ghost'} className="w-full justify-start">
                   <Users className="mr-2 h-4 w-4" /> SplitEase
+                </Button>
+              </Link>
+              <Link href="/sharing" onClick={() => onOpenChange(false)}>
+                <Button variant={pathname === '/sharing' ? 'secondary' : 'ghost'} className="w-full justify-start">
+                    <Share2 className="mr-2 h-4 w-4" /> Sharing
                 </Button>
               </Link>
                {user?.email === ADMIN_EMAIL && (

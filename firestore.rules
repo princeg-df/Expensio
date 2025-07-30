@@ -3,36 +3,75 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth.token.email == 'princegupta619@gmail.com';
+  
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    match /users/{userId} {
-      // Allow authenticated users to list documents, needed for inviting users
-      allow list: if request.auth != null;
-      // Allow users to read their own document OR if the user is an admin
-      allow read: if request.auth.uid == userId || isAdmin();
-      // Allow authenticated users to create placeholder users
-      allow create: if request.resource.data.isPlaceholder == true && request.auth != null;
-      // Allow users to update or delete their own document OR if the user is an admin
-      allow update: if request.auth.uid == userId || isAdmin();
-      allow delete: if request.auth.uid == userId || isAdmin();
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    function isAdminEmail() {
+      return request.auth.token.email == 'princegupta619@gmail.com';
+    }
+    
+    // SplitEase: Check if user is a member of a group
+    function isGroupMember(groupId) {
+      return isSignedIn() && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+    }
+    
+    // Sharing: Check role for a shared account
+    function getShareRole(ownerId) {
+      let shares = firestore.get(/databases/$(database)/documents/shares?ownerUid=$(ownerId)&sharedWithUid_eq=$(request.auth.uid)&status_eq=accepted).docs;
+      return shares.size() > 0 ? shares[0].data.role : null;
+    }
 
-      // Admin can read/write any sub-collection data. Users can only access their own.
-      match /{document=**} {
-        allow read, write: if request.auth.uid == userId || isAdmin();
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read, update, delete: if isUser(userId) || isAdminEmail();
+      allow create: if isSignedIn();
+      
+      // User's Subcollections
+      match /{collection}/{docId} {
+        allow read: if 
+          isUser(userId) || 
+          getShareRole(userId) in ['viewer', 'editor', 'admin'] ||
+          isAdminEmail();
+          
+        allow create, update: if 
+          isUser(userId) ||
+          getShareRole(userId) in ['editor', 'admin'];
+
+        allow delete: if 
+          isUser(userId) ||
+          getShareRole(userId) == 'admin' ||
+          isAdminEmail();
       }
     }
     
+    // Groups (SplitEase) Collection
     match /groups/{groupId} {
-      allow create: if request.auth != null;
-      // Only group members can read group data or update the members list (to leave)
-      allow read, update: if request.auth.uid in resource.data.members;
+      allow read, update: if isGroupMember(groupId);
+      allow create: if isSignedIn();
       
-      // Only members can access expenses
       match /expenses/{expenseId} {
-         allow read, write: if get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+         allow read, create, update, delete: if isGroupMember(groupId);
       }
+    }
+    
+    // Shares (Sharing Invitations) Collection
+    match /shares/{shareId} {
+        allow create: if request.resource.data.ownerUid == request.auth.uid;
+        allow read: if request.resource.data.ownerUid == request.auth.uid || request.resource.data.sharedWithEmail == request.auth.token.email;
+        allow update: if request.resource.data.sharedWithEmail == request.auth.token.email && request.resource.data.status == 'pending';
+        allow delete: if request.resource.data.ownerUid == request.auth.uid;
     }
   }
 }

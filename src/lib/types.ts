@@ -75,3 +75,17 @@ export type Settlement = {
     amount: number;
     date: Timestamp;
 }
+
+// Types for Sharing Feature
+export type Role = 'viewer' | 'editor' | 'admin';
+
+export type Share = {
+  id: string;
+  ownerUid: string;
+  ownerEmail: string;
+  sharedWithEmail: string;
+  sharedWithUid?: string; // UID of the user it's shared with, populated on accept
+  role: Role;
+  status: 'pending' | 'accepted';
+  createdAt: Timestamp;
+}
