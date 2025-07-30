@@ -1,20 +1,22 @@
 
 'use client';
 
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent } from '@/components/ui/card';
+import { ArrowDownRight, ArrowUpRight, CheckCircle } from 'lucide-react';
+import { Button } from '../ui/button';
 
 type SettlementSummaryProps = {
-  owes: { name: string; amount: number }[];
-  owed: { name: string; amount: number }[];
+  owes: { uid: string; name: string; amount: number }[];
+  owed: { uid: string; name: string; amount: number }[];
+  onSettleUp: (toUid: string, amount: number) => void;
 };
 
-export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
+export function SettlementSummary({ owes, owed, onSettleUp }: SettlementSummaryProps) {
   if (owes.length === 0 && owed.length === 0) {
     return (
-      <div className="flex h-24 items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted/20">
-        <p className="text-sm text-center text-muted-foreground">All settled up!</p>
+      <div className="flex flex-col items-center justify-center text-center p-4 rounded-lg bg-muted/50 h-32">
+        <CheckCircle className="h-8 w-8 text-green-500 mb-2"/>
+        <h3 className="font-semibold">All Settled Up!</h3>
+        <p className="text-sm text-muted-foreground">You have no outstanding balances in this group.</p>
       </div>
     );
   }
@@ -22,15 +24,18 @@ export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
     <div className="space-y-4">
       {owes.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold mb-2 text-destructive">You Owe</h3>
+          <h3 className="text-sm font-semibold mb-2 text-destructive">YOU OWE</h3>
           <ul className="space-y-2">
             {owes.map((item, index) => (
-              <li key={index} className="flex items-center justify-between p-2 rounded-md bg-destructive/10">
+              <li key={index} className="flex items-center justify-between p-2.5 rounded-lg bg-destructive/10">
                 <div className="flex items-center gap-2">
-                   <ArrowUpRight className="h-4 w-4 text-destructive" />
-                   <span className="font-medium">{item.name}</span>
+                   <ArrowUpRight className="h-5 w-5 text-destructive" />
+                   <span className="font-medium text-destructive">{item.name}</span>
                 </div>
-                <span className="font-semibold">₹{item.amount.toFixed(2)}</span>
+                <div className="flex items-center gap-2">
+                    <span className="font-semibold text-destructive">₹{item.amount.toFixed(2)}</span>
+                    <Button size="sm" variant="destructive" className="h-7" onClick={() => onSettleUp(item.uid, item.amount)}>Settle</Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -38,15 +43,15 @@ export function SettlementSummary({ owes, owed }: SettlementSummaryProps) {
       )}
        {owed.length > 0 && (
         <div>
-          <h3 className="text-sm font-semibold mb-2 text-green-500">You Are Owed</h3>
+          <h3 className="text-sm font-semibold mb-2 text-green-500">YOU ARE OWED</h3>
           <ul className="space-y-2">
             {owed.map((item, index) => (
-              <li key={index} className="flex items-center justify-between p-2 rounded-md bg-green-500/10">
+              <li key={index} className="flex items-center justify-between p-2.5 rounded-lg bg-green-500/10">
                 <div className="flex items-center gap-2">
-                    <ArrowDownRight className="h-4 w-4 text-green-500" />
-                    <span className="font-medium">{item.name}</span>
+                    <ArrowDownRight className="h-5 w-5 text-green-500" />
+                    <span className="font-medium text-green-500">{item.name}</span>
                 </div>
-                <span className="font-semibold">₹{item.amount.toFixed(2)}</span>
+                <span className="font-semibold text-green-500">₹{item.amount.toFixed(2)}</span>
               </li>
             ))}
           </ul>

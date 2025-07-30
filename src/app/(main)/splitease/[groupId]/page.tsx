@@ -1,88 +1,85 @@
 
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { doc, getDoc, collection, addDoc, Timestamp, query, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '@/providers/app-provider';
+import { useParams, useRouter, notFound } from 'next/navigation';
+import { doc, getDoc, onSnapshot, collection, query, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Group, AppUser, GroupExpense } from '@/lib/types';
-import { useAuth } from '@/providers/app-provider';
-
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader } from '@/components/ui/loader';
-import Link from 'next/link';
-import { ArrowLeft, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import Link from 'next/link';
 
-
-import { MembersList } from '@/components/splitease/members-list';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, PlusCircle, Users } from 'lucide-react';
+import { Loader } from '@/components/ui/loader';
 import { AddExpenseDialog } from '@/components/splitease/add-expense-dialog';
 import { ExpenseList } from '@/components/splitease/expense-list';
+import { MembersList } from '@/components/splitease/members-list';
 import { SettlementSummary } from '@/components/splitease/settlement-summary';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { SettlementHistory } from '@/components/splitease/settlement-history';
+
 
 export default function GroupDetailPage() {
   const { user, loading: authLoading } = useAuth();
-  const params = useParams();
-  const router = useRouter();
-  const groupId = params.groupId as string;
   const { toast } = useToast();
+  const params = useParams();
+  const groupId = params.groupId as string;
+  const router = useRouter();
 
+  const [loading, setLoading] = useState(true);
   const [group, setGroup] = useState<Group | null>(null);
   const [members, setMembers] = useState<AppUser[]>([]);
   const [expenses, setExpenses] = useState<GroupExpense[]>([]);
-  const [loading, setLoading] = useState(true);
-  
+
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<GroupExpense | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<GroupExpense | null>(null);
-
+  const [deletingExpense, setDeletingExpense] = useState<GroupExpense | null>(null);
 
   useEffect(() => {
     if (!user || !groupId) return;
-    setLoading(true);
 
     const groupDocRef = doc(db, 'groups', groupId);
-    
     const unsubscribeGroup = onSnapshot(groupDocRef, async (docSnap) => {
-        if (docSnap.exists()) {
-            const groupData = docSnap.data() as Group;
-            if (groupData.members.includes(user.uid)) {
-                setGroup({ id: docSnap.id, ...groupData });
-
-                // Fetch member details
-                const memberUsers: AppUser[] = [];
-                for (const memberId of groupData.members) {
-                    const userDocRef = doc(db, 'users', memberId);
-                    const userDocSnap = await getDoc(userDocRef);
-                    if (userDocSnap.exists()) {
-                        memberUsers.push({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
-                    }
-                }
-                setMembers(memberUsers);
-
-            } else {
-                router.push('/splitease');
-            }
-        } else {
-            router.push('/splitease');
+      if (docSnap.exists()) {
+        const groupData = { id: docSnap.id, ...docSnap.data() } as Group;
+        if (!groupData.members.includes(user.uid)) {
+          setGroup(null);
+          return notFound();
         }
-        setLoading(false);
-    }, (error) => {
-        console.error("Error fetching group details:", error);
-        setLoading(false);
+        setGroup(groupData);
+
+        const memberIds = groupData.members;
+        if (memberIds.length > 0) {
+            const membersPromises = memberIds.map(id => getDoc(doc(db, 'users', id)));
+            const memberDocs = await Promise.all(membersPromises);
+            const membersData = memberDocs
+                .filter(doc => doc.exists())
+                .map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+            setMembers(membersData);
+        }
+
+      } else {
+        setGroup(null);
+        notFound();
+      }
+      setLoading(false);
     });
-    
+
     const expensesQuery = query(collection(db, 'groups', groupId, 'expenses'));
     const unsubscribeExpenses = onSnapshot(expensesQuery, (querySnapshot) => {
-        const groupExpenses = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
-        setExpenses(groupExpenses.sort((a, b) => b.date.seconds - a.date.seconds));
+      const expensesData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as GroupExpense));
+      setExpenses(expensesData.sort((a,b) => b.date.toMillis() - a.date.toMillis()));
+    }, () => {
+        setLoading(false);
     });
-
+    
     return () => {
-        unsubscribeGroup();
-        unsubscribeExpenses();
+      unsubscribeGroup();
+      unsubscribeExpenses();
     };
 
   }, [user, groupId, router]);
@@ -90,204 +87,215 @@ export default function GroupDetailPage() {
   const handleAddOrUpdateExpense = async (data: any, expenseId?: string) => {
     if (!user || !group) return;
 
-    const { description, amount, paidBy, splitWith } = data;
-    const splitAmount = amount / splitWith.length;
-
-    const expenseData = {
-      groupId,
-      description,
-      amount,
-      paidBy,
-      splitWith: splitWith.map((uid: string) => ({ uid, amount: splitAmount })),
-      date: Timestamp.now(),
-    };
-    
     try {
-        if (expenseId) {
-            const expenseDocRef = doc(db, 'groups', groupId, 'expenses', expenseId);
-            await updateDoc(expenseDocRef, expenseData);
-            toast({ title: 'Success', description: 'Expense updated successfully.' });
-        } else {
-            await addDoc(collection(db, 'groups', groupId, 'expenses'), expenseData);
-            toast({ title: 'Success', description: 'Expense added successfully.' });
-        }
+      const expenseData = {
+        description: data.description,
+        amount: Number(data.amount),
+        paidBy: data.paidBy,
+        splitWith: data.splitWith.map((uid: string) => ({ uid, amount: 0 })), // amount can be calculated later
+        date: Timestamp.now(),
+        groupId: group.id,
+      };
+      
+      if (expenseId) {
+        await updateDoc(doc(db, 'groups', group.id, 'expenses', expenseId), expenseData);
+        toast({ title: 'Success', description: 'Expense updated successfully.' });
+      } else {
+        await addDoc(collection(db, 'groups', group.id, 'expenses'), expenseData);
+        toast({ title: 'Success', description: 'Expense added successfully.' });
+      }
+
+    } catch (error) {
+      console.error('Error adding/updating expense:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to process expense.' });
+    } finally {
         setIsAddExpenseOpen(false);
         setEditingExpense(null);
-    } catch (error) {
-        console.error('Error adding/updating expense:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to save expense.' });
     }
   };
 
   const handleDeleteExpense = async () => {
-    if (!expenseToDelete) return;
+    if (!deletingExpense || !group) return;
+    try {
+      await deleteDoc(doc(db, 'groups', group.id, 'expenses', deletingExpense.id));
+      toast({ title: 'Success', description: 'Expense deleted successfully.' });
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete expense.' });
+    } finally {
+      setDeletingExpense(null);
+    }
+  }
+
+  const handleSettleUp = async (toUid: string, amount: number) => {
+    if (!user || !group) return;
+    const toMember = members.find(m => m.id === toUid);
+    if (!toMember) return;
 
     try {
-        const expenseDocRef = doc(db, 'groups', groupId, 'expenses', expenseToDelete.id);
-        await deleteDoc(expenseDocRef);
-        toast({ title: 'Success', description: 'Expense deleted successfully.' });
-        setExpenseToDelete(null);
+        const settlementData = {
+            description: `Settlement with ${toMember.name}`,
+            amount: Number(amount),
+            paidBy: user.uid,
+            splitWith: [{ uid: toUid, amount: 0 }],
+            date: Timestamp.now(),
+            groupId: group.id,
+            isSettlement: true,
+        };
+        await addDoc(collection(db, 'groups', group.id, 'expenses'), settlementData);
+        toast({ title: 'Success', description: `Settlement of ₹${amount.toFixed(2)} with ${toMember.name} recorded.` });
     } catch (error) {
-        console.error('Error deleting expense:', error);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete expense.' });
+        console.error('Error settling up:', error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to record settlement.' });
     }
   }
   
   const { owes, owed } = useMemo(() => {
-    if (!user || !members.length || !expenses.length) return { owes: [], owed: [] };
+    if (!user || members.length === 0 || expenses.length === 0) {
+      return { owes: [], owed: [] };
+    }
 
-    const balances: { [uid: string]: number } = {};
-    members.forEach(m => { balances[m.id] = 0; });
+    const balances: { [key: string]: number } = {};
+    members.forEach(m => {
+        if(m.id) balances[m.id] = 0;
+    });
 
-    expenses.forEach(expense => {
-        balances[expense.paidBy] += expense.amount;
-        expense.splitWith.forEach(share => {
-            balances[share.uid] -= share.amount;
-        });
+    const activeExpenses = expenses.filter(expense => !expense.isSettlement);
+
+    activeExpenses.forEach(expense => {
+      if(balances[expense.paidBy] !== undefined) {
+         balances[expense.paidBy] += expense.amount;
+      }
+      const share = expense.amount / expense.splitWith.length;
+      expense.splitWith.forEach(split => {
+         if(balances[split.uid] !== undefined) {
+            balances[split.uid] -= share;
+         }
+      });
     });
 
     const debtors = Object.entries(balances)
-      .filter(([, amount]) => amount < 0)
-      .map(([uid, amount]) => ({ uid, amount: amount }));
+      .filter(([, amount]) => amount < -0.01)
+      .map(([uid, amount]) => ({ uid, amount: -amount }));
 
     const creditors = Object.entries(balances)
-      .filter(([, amount]) => amount > 0)
-      .map(([uid, amount]) => ({ uid, amount: amount }));
-    
+      .filter(([, amount]) => amount > 0.01)
+      .map(([uid, amount]) => ({ uid, amount }));
+
     const transactions = [];
 
-    while(debtors.length > 0 && creditors.length > 0) {
-      const currentDebtor = debtors[0];
-      const currentCreditor = creditors[0];
-      const amount = Math.min(-currentDebtor.amount, currentCreditor.amount);
+    while (debtors.length > 0 && creditors.length > 0) {
+      const debtor = debtors[0];
+      const creditor = creditors[0];
+      const amount = Math.min(debtor.amount, creditor.amount);
 
-      transactions.push({ from: currentDebtor.uid, to: currentCreditor.uid, amount });
+      transactions.push({ from: debtor.uid, to: creditor.uid, amount });
 
-      currentDebtor.amount += amount;
-      currentCreditor.amount -= amount;
+      debtor.amount -= amount;
+      creditor.amount -= amount;
 
-      if(Math.abs(currentDebtor.amount) < 0.01) debtors.shift();
-      if(Math.abs(currentCreditor.amount) < 0.01) creditors.shift();
+      if (debtor.amount < 0.01) debtors.shift();
+      if (creditor.amount < 0.01) creditors.shift();
     }
     
-    const owesList = transactions
-      .filter(t => t.from === user.id)
-      .map(t => ({ name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
+    const userOwes = transactions
+        .filter(t => t.from === user.uid)
+        .map(t => ({ uid: t.to, name: members.find(m => m.id === t.to)?.name || 'Unknown', amount: t.amount }));
 
-    const owedList = transactions
-      .filter(t => t.to === user.id)
-      .map(t => ({ name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
-      
-    return { owes: owesList, owed: owedList };
+    const userIsOwed = transactions
+        .filter(t => t.to === user.uid)
+        .map(t => ({ uid: t.from, name: members.find(m => m.id === t.from)?.name || 'Unknown', amount: t.amount }));
+    
+    return { owes: userOwes, owed: userIsOwed };
+    
+  }, [user, members, expenses]);
 
-  }, [expenses, members, user]);
+  const handleOpenEditDialog = (expense: GroupExpense) => {
+    setEditingExpense(expense);
+    setIsAddExpenseOpen(true);
+  }
 
-
-  if (loading || authLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader />
-      </div>
-    );
+  if (authLoading || loading) {
+    return <div className="flex h-screen items-center justify-center"><Loader /></div>;
   }
   
   if (!group) {
-    return (
-       <Card className="max-w-md mx-auto mt-10 text-center">
-        <CardHeader>
-          <CardTitle>Group Not Found</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">The group you are looking for does not exist or you do not have permission to view it.</p>
-          <Button asChild className="mt-4">
-            <Link href="/splitease">Back to SplitEase</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
+    return notFound();
   }
 
   return (
     <>
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-            <Button asChild variant="outline" size="icon">
-            <Link href="/splitease">
-                <ArrowLeft className="h-4 w-4" />
-            </Link>
+      <div className="space-y-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+                 <Button asChild variant="outline" size="icon">
+                    <Link href="/splitease">
+                        <ArrowLeft className="h-4 w-4" />
+                    </Link>
+                </Button>
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{group.name}</h1>
+                    <p className="text-muted-foreground flex items-center gap-1.5"><Users className="h-4 w-4"/> {members.length} member{members.length > 1 ? 's' : ''}</p>
+                </div>
+            </div>
+            <Button onClick={() => { setEditingExpense(null); setIsAddExpenseOpen(true); } }>
+                <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
             </Button>
-            <div>
-            <h1 className="text-3xl font-bold tracking-tight">{group.name}</h1>
-            <p className="text-muted-foreground">Manage your group expenses and members.</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="lg:col-span-2 space-y-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Expenses</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <ExpenseList expenses={expenses.filter(e => !e.isSettlement)} members={members} onEdit={handleOpenEditDialog} onDelete={setDeletingExpense} />
+                    </CardContent>
+                 </Card>
+            </div>
+            <div className="lg:col-span-1 space-y-6">
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Group Info</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Tabs defaultValue="settlements">
+                            <TabsList className="grid w-full grid-cols-3">
+                                <TabsTrigger value="settlements">Settlements</TabsTrigger>
+                                <TabsTrigger value="members">Members</TabsTrigger>
+                                <TabsTrigger value="history">History</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="settlements" className="mt-4">
+                               <SettlementSummary owes={owes} owed={owed} onSettleUp={handleSettleUp}/>
+                            </TabsContent>
+                            <TabsContent value="members" className="mt-4">
+                                <MembersList members={members}/>
+                            </TabsContent>
+                            <TabsContent value="history" className="mt-4">
+                                <SettlementHistory settlements={expenses.filter(e => !!e.isSettlement)} members={members} />
+                            </TabsContent>
+                        </Tabs>
+                    </CardContent>
+                </Card>
             </div>
         </div>
-        <Button onClick={() => setIsAddExpenseOpen(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Expense
-        </Button>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Members</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <MembersList members={members} />
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Settlement</CardTitle>
-                    <CardDescription>A summary of who owes who.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <SettlementSummary owes={owes} owed={owed} />
-                </CardContent>
-            </Card>
-        </div>
-
-        <div className="lg:col-span-2 space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Expenses</CardTitle>
-                    <CardDescription>All expenses for this group.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ExpenseList 
-                        expenses={expenses} 
-                        members={members} 
-                        onEdit={(expense) => {
-                            setEditingExpense(expense);
-                            setIsAddExpenseOpen(true);
-                        }}
-                        onDelete={(expense) => setExpenseToDelete(expense)}
-                    />
-                </CardContent>
-            </Card>
-        </div>
-      </div>
-    </div>
-     <AddExpenseDialog
-        isOpen={isAddExpenseOpen || !!editingExpense}
-        onOpenChange={(open) => {
-            if(!open) {
-                setIsAddExpenseOpen(false);
-                setEditingExpense(null);
-            }
-        }}
+      
+      <AddExpenseDialog 
+        isOpen={isAddExpenseOpen}
+        onOpenChange={(open) => { if (!open) { setEditingExpense(null); setIsAddExpenseOpen(false) } else { setIsAddExpenseOpen(true) }}}
         onAddOrUpdateExpense={handleAddOrUpdateExpense}
         members={members}
         existingExpense={editingExpense}
       />
-
-    <AlertDialog open={!!expenseToDelete} onOpenChange={() => setExpenseToDelete(null)}>
+      
+      <AlertDialog open={!!deletingExpense} onOpenChange={() => setDeletingExpense(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the expense: <span className="font-bold">{expenseToDelete?.description}</span>. This action cannot be undone.
+              This will permanently delete the expense: <span className="font-bold">{deletingExpense?.description} (₹{deletingExpense?.amount.toFixed(2)})</span>. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -295,7 +303,7 @@ export default function GroupDetailPage() {
             <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-    </AlertDialog>
+      </AlertDialog>
     </>
   );
 }
