@@ -107,10 +107,21 @@ export default function SharingPage() {
 
     setIsSubmitting(true);
     try {
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, where("email", "==", values.email));
+      const querySnapshot = await getDocs(q);
+      let sharedWithUid = '';
+      if (!querySnapshot.empty) {
+        sharedWithUid = querySnapshot.docs[0].id;
+      }
+      
+      const shareId = `${user.uid}_${sharedWithUid || values.email}`;
+      
       await addDoc(collection(db, 'shares'), {
         ownerUid: user.uid,
         ownerEmail: user.email,
         sharedWithEmail: values.email,
+        sharedWithUid: sharedWithUid || null,
         role: values.role,
         status: 'pending',
         createdAt: Timestamp.now(),
@@ -139,10 +150,19 @@ export default function SharingPage() {
     if(!user) return;
     try {
         if (accept) {
-            await updateDoc(doc(db, 'shares', shareId), {
+            const shareRef = doc(db, 'shares', shareId);
+            const newShareId = `${(await getDoc(shareRef)).data()?.ownerUid}_${user.uid}`;
+            const newShareRef = doc(db, 'shares', newShareId);
+
+            const batch = writeBatch(db);
+            batch.set(newShareRef, {
                 status: 'accepted',
                 sharedWithUid: user.uid,
-            });
+            }, { merge: true });
+            batch.delete(shareRef);
+
+            await batch.commit();
+
             toast({ title: 'Success', description: 'Invitation accepted.' });
         } else {
             await deleteDoc(doc(db, 'shares', shareId));
@@ -177,13 +197,13 @@ export default function SharingPage() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleInvite)} className="flex flex-col sm:flex-row items-start gap-4">
+            <form onSubmit={form.handleSubmit(handleInvite)} className="flex flex-col sm:flex-row items-end gap-4">
               <FormField
                 control={form.control}
                 name="email"
                 render={({ field }) => (
                   <FormItem className="flex-1 w-full">
-                    <FormLabel className="sr-only">Email</FormLabel>
+                    <FormLabel>Email</FormLabel>
                     <FormControl>
                       <Input placeholder="name@example.com" {...field} />
                     </FormControl>
@@ -196,7 +216,7 @@ export default function SharingPage() {
                 name="role"
                 render={({ field }) => (
                   <FormItem className="w-full sm:w-auto">
-                    <FormLabel className="sr-only">Role</FormLabel>
+                    <FormLabel>Role</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger className="w-full sm:w-[120px]">
@@ -275,7 +295,7 @@ export default function SharingPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                         {incomingShares.length > 0 ? incomingShares.filter(s => s.status === 'pending').map(share => (
+                         {incomingShares.filter(s => s.status === 'pending').length > 0 ? incomingShares.filter(s => s.status === 'pending').map(share => (
                             <TableRow key={share.id}>
                                 <TableCell className="font-medium break-all">{share.ownerEmail}</TableCell>
                                 <TableCell><Badge variant="secondary">{share.role}</Badge></TableCell>
