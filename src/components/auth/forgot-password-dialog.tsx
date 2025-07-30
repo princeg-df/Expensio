@@ -19,7 +19,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Loader } from '@/components/ui/loader';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -105,7 +105,7 @@ export function ForgotPasswordDialog({ isOpen, onOpenChange }: ForgotPasswordDia
                 Cancel
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading && <Loader iconClassName="h-4 w-4 mr-2" />}
+                {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Send Reset Link
               </Button>
             </DialogFooter>
