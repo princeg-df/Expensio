@@ -2,52 +2,69 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isUserAuthenticated() {
-      return request.auth != null;
-    }
-
+    
+    // --- Helper Functions ---
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
     function isAdmin() {
       return request.auth.token.email == 'princegupta619@gmail.com';
     }
 
+    function isSharedWithUser(ownerId) {
+      return exists(/databases/$(database)/documents/shares/$(request.auth.uid)_$(ownerId));
+    }
+
+    function getShareRole(ownerId) {
+        return get(/databases/$(database)/documents/shares/$(request.auth.uid)_$(ownerId)).data.role;
+    }
+
+    // --- Users Collection ---
     match /users/{userId} {
-      allow read, update, delete: if isUserAuthenticated() && isOwner(userId);
-      allow create: if isUserAuthenticated();
+      // Users can only access their own data, or if they are an admin
+      allow read: if isOwner(userId) || isAdmin() || isSharedWithUser(userId);
+      allow write: if isOwner(userId) || isAdmin();
 
-      // Admin override
-      allow read, write: if isAdmin();
-
+      // Subcollections (transactions, emis, autopays)
       match /{collection}/{docId} {
-        allow read, create, update, delete: if isUserAuthenticated() && isOwner(userId);
-        allow read, write: if isAdmin();
+         allow read: if isOwner(userId) 
+                      || isAdmin()
+                      || (isSharedWithUser(userId) && getShareRole(userId) in ['viewer', 'editor', 'admin']);
+        
+        allow create: if isOwner(userId) 
+                       || isAdmin() 
+                       || (isSharedWithUser(userId) && getShareRole(userId) in ['editor', 'admin']);
+                       
+        allow update: if isOwner(userId) 
+                       || isAdmin() 
+                       || (isSharedWithUser(userId) && getShareRole(userId) in ['editor', 'admin']);
+
+        allow delete: if isOwner(userId) 
+                       || isAdmin() 
+                       || (isSharedWithUser(userId) && getShareRole(userId) == 'admin');
       }
     }
 
+    // --- Shares Collection ---
     match /shares/{shareId} {
-      allow read: if isUserAuthenticated() &&
-                  (resource.data.ownerUid == request.auth.uid ||
-                   resource.data.sharedWithEmail == request.auth.token.email);
-      allow create: if isUserAuthenticated() &&
-                    request.resource.data.ownerUid == request.auth.uid;
-      allow update: if isUserAuthenticated() &&
-                    resource.data.sharedWithEmail == request.auth.token.email &&
-                    request.resource.data.status == 'accepted';
-      allow delete: if isUserAuthenticated() &&
-                    resource.data.ownerUid == request.auth.uid;
+        allow read: if isSignedIn() && (request.auth.uid == resource.data.ownerUid || request.auth.uid == resource.data.sharedWithUid);
+        allow create: if isOwner(resource.data.ownerUid);
+        allow update: if isOwner(resource.data.sharedWithUid) && request.resource.data.status == 'accepted';
+        allow delete: if isOwner(resource.data.ownerUid);
     }
-
+    
+    // --- Groups (SplitEase) ---
     match /groups/{groupId} {
-      allow read, write: if isUserAuthenticated() &&
-                          request.auth.uid in resource.data.members;
+      allow read, write: if isSignedIn() && request.auth.uid in resource.data.members;
 
+      // Expenses within a group
       match /expenses/{expenseId} {
-        allow read, write: if isUserAuthenticated() &&
-                            request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
+        allow read, write: if isSignedIn() && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
       }
     }
   }
