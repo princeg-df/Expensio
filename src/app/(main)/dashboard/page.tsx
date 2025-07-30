@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc, writeBatch, getDocs } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { collection, query, onSnapshot, doc, getDoc, updateDoc, addDoc, deleteDoc, Timestamp, setDoc, writeBatch, getDocs, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from '@/providers/app-provider';
 import type { Transaction, Emi, Autopay } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -23,6 +23,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Loader } from '@/components/ui/loader';
+import { AccountSwitcher } from '@/components/layout/account-switcher';
+
 
 import { CircleDollarSign, Receipt, PiggyBank, Repeat, Wallet, PlusCircle, Edit } from 'lucide-react';
 
@@ -33,7 +35,7 @@ type DeletionInfo = {
 
 
 export default function DashboardPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, viewingUid, isSharedView, permissionLevel } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -53,11 +55,14 @@ export default function DashboardPage() {
 
   const [deletionInfo, setDeletionInfo] = useState<DeletionInfo>(null);
 
+  const canEdit = !isSharedView || permissionLevel === 'editor' || permissionLevel === 'admin';
+  const canDelete = !isSharedView || permissionLevel === 'admin';
+
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!viewingUid) return;
     setLoading(true);
     try {
-        const userDocRef = doc(db, `users/${user.uid}`);
+        const userDocRef = doc(db, `users/${viewingUid}`);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
@@ -65,7 +70,7 @@ export default function DashboardPage() {
             setUserName(userData.name || 'Guest');
 
             // Backfill existing user data
-            if (!userData.name || !userData.mobileNumber) {
+            if (!isSharedView && (!userData.name || !userData.mobileNumber)) {
                 await updateDoc(userDocRef, {
                     name: userData.name || 'Guest',
                     mobileNumber: userData.mobileNumber || '9999999999',
@@ -73,7 +78,7 @@ export default function DashboardPage() {
             }
         }
 
-        const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+        const transactionsQuery = query(collection(db, `users/${viewingUid}/transactions`));
         const transactionsSnapshot = await getDocs(transactionsQuery);
         const transactionsData: Transaction[] = [];
         transactionsSnapshot.forEach((doc) => {
@@ -81,7 +86,7 @@ export default function DashboardPage() {
         });
         setTransactions(transactionsData);
 
-        const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+        const emisQuery = query(collection(db, `users/${viewingUid}/emis`));
         const emisSnapshot = await getDocs(emisQuery);
         const emisData: Emi[] = [];
         const emiBatch = writeBatch(db);
@@ -103,7 +108,7 @@ export default function DashboardPage() {
             needsUpdate = true;
           }
 
-          if (needsUpdate) {
+          if (needsUpdate && canEdit) {
             emiBatch.update(doc.ref, updates);
             hasEmiUpdates = true;
             emi = { ...emi, ...updates }; 
@@ -126,26 +131,26 @@ export default function DashboardPage() {
                 if (newMonthsRemaining > 0) {
                     emi.monthsRemaining = newMonthsRemaining;
                     emi.nextPaymentDate = Timestamp.fromDate(newNextPaymentDate);
-                    emiBatch.update(doc.ref, { 
+                    if (canEdit) emiBatch.update(doc.ref, { 
                         monthsRemaining: newMonthsRemaining,
                         nextPaymentDate: Timestamp.fromDate(newNextPaymentDate)
                     });
                 } else {
                     emi.monthsRemaining = 0;
-                    emiBatch.update(doc.ref, { monthsRemaining: 0 });
+                    if(canEdit) emiBatch.update(doc.ref, { monthsRemaining: 0 });
                 }
-                hasEmiUpdates = true;
+                if (canEdit) hasEmiUpdates = true;
             }
           }
           emisData.push(emi);
         });
         
-        if(hasEmiUpdates) {
+        if(hasEmiUpdates && canEdit) {
             await emiBatch.commit();
         }
         setEmis(emisData);
 
-        const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+        const autopaysQuery = query(collection(db, `users/${viewingUid}/autopays`));
         const autopaysSnapshot = await getDocs(autopaysQuery);
         const autopaysData: Autopay[] = [];
         const autopayBatch = writeBatch(db);
@@ -155,14 +160,14 @@ export default function DashboardPage() {
             let autopay = { id: doc.id, ...doc.data() } as Autopay;
             if (!autopay.startDate) {
                 const updates = { startDate: autopay.nextPaymentDate || Timestamp.fromDate(new Date()) };
-                autopayBatch.update(doc.ref, updates);
+                if (canEdit) autopayBatch.update(doc.ref, updates);
                 autopay = { ...autopay, ...updates };
-                hasAutopayUpdates = true;
+                if (canEdit) hasAutopayUpdates = true;
             }
             autopaysData.push(autopay);
         });
 
-        if (hasAutopayUpdates) {
+        if (hasAutopayUpdates && canEdit) {
             await autopayBatch.commit();
         }
         setAutopays(autopaysData);
@@ -172,24 +177,24 @@ export default function DashboardPage() {
         toast({
             variant: "destructive",
             title: "Error fetching data",
-            description: "Could not retrieve your financial data. Please try again later.",
+            description: "Could not retrieve financial data. Please try again later.",
         });
     } finally {
         setLoading(false);
     }
-  }, [user, toast]);
+  }, [viewingUid, toast, canEdit, isSharedView]);
 
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) return;
+    if (!viewingUid) return;
 
     fetchData(); 
 
-    const transactionsUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/transactions`)), () => fetchData());
-    const emisUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/emis`)), () => fetchData());
-    const autopaysUnsubscribe = onSnapshot(query(collection(db, `users/${user.uid}/autopays`)), () => fetchData());
-    const userUnsubscribe = onSnapshot(doc(db, `users/${user.uid}`), () => fetchData());
+    const transactionsUnsubscribe = onSnapshot(query(collection(db, `users/${viewingUid}/transactions`)), () => fetchData());
+    const emisUnsubscribe = onSnapshot(query(collection(db, `users/${viewingUid}/emis`)), () => fetchData());
+    const autopaysUnsubscribe = onSnapshot(query(collection(db, `users/${viewingUid}/autopays`)), () => fetchData());
+    const userUnsubscribe = onSnapshot(doc(db, `users/${viewingUid}`), () => fetchData());
 
     return () => {
       transactionsUnsubscribe();
@@ -197,17 +202,17 @@ export default function DashboardPage() {
       autopaysUnsubscribe();
       userUnsubscribe();
     }
-  }, [user, authLoading, fetchData]);
+  }, [viewingUid, authLoading, fetchData]);
 
   const handleSetBudget = async (newBudget: number) => {
-    if (!user) return;
-    const userDocRef = doc(db, `users/${user.uid}`);
+    if (!viewingUid) return;
+    const userDocRef = doc(db, `users/${viewingUid}`);
     await setDoc(userDocRef, { budget: newBudget }, { merge: true });
     setBudget(newBudget);
   };
   
   const handleAddOrUpdateTransaction = async (data: Omit<Transaction, 'id' | 'date'> & { date: Date }, id?: string) => {
-    if (!user) return;
+    if (!viewingUid) return;
     const transactionData = {
       ...data,
       date: Timestamp.fromDate(data.date),
@@ -215,16 +220,16 @@ export default function DashboardPage() {
     };
 
     if (id) {
-      await updateDoc(doc(db, `users/${user.uid}/transactions`, id), transactionData);
+      await updateDoc(doc(db, `users/${viewingUid}/transactions`, id), transactionData);
     } else {
-      await addDoc(collection(db, `users/${user.uid}/transactions`), transactionData);
+      await addDoc(collection(db, `users/${viewingUid}/transactions`), transactionData);
     }
     setEditingTransaction(null);
     setIsAddTransactionOpen(false);
   };
 
   const handleAddOrUpdateEmi = async (data: Omit<Emi, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
-    if (!user) return;
+    if (!viewingUid) return;
      const emiData = {
       ...data,
       startDate: Timestamp.fromDate(data.startDate),
@@ -234,16 +239,16 @@ export default function DashboardPage() {
       monthsRemaining: Number(data.monthsRemaining),
     };
     if (id) {
-        await updateDoc(doc(db, `users/${user.uid}/emis`, id), emiData);
+        await updateDoc(doc(db, `users/${viewingUid}/emis`, id), emiData);
     } else {
-        await addDoc(collection(db, `users/${user.uid}/emis`), emiData);
+        await addDoc(collection(db, `users/${viewingUid}/emis`), emiData);
     }
     setEditingEmi(null);
     setIsAddEmiOpen(false);
   };
   
   const handleAddOrUpdateAutopay = async (data: Omit<Autopay, 'id' | 'startDate' | 'nextPaymentDate'> & { startDate: Date, nextPaymentDate: Date }, id?: string) => {
-    if (!user) return;
+    if (!viewingUid) return;
     const autopayData = {
       ...data,
       startDate: Timestamp.fromDate(data.startDate),
@@ -251,18 +256,18 @@ export default function DashboardPage() {
       amount: Number(data.amount),
     };
     if (id) {
-      await updateDoc(doc(db, `users/${user.uid}/autopays`, id), autopayData);
+      await updateDoc(doc(db, `users/${viewingUid}/autopays`, id), autopayData);
     } else {
-      await addDoc(collection(db, `users/${user.uid}/autopays`), autopayData);
+      await addDoc(collection(db, `users/${viewingUid}/autopays`), autopayData);
     }
     setEditingAutopay(null);
     setIsAddAutopayOpen(false);
   };
 
   const handleDelete = async () => {
-    if (!user || !deletionInfo) return;
+    if (!viewingUid || !deletionInfo) return;
     const { id, type } = deletionInfo;
-    await deleteDoc(doc(db, `users/${user.uid}/${type}s`, id));
+    await deleteDoc(doc(db, `users/${viewingUid}/${type}s`, id));
     setDeletionInfo(null);
   };
   
@@ -336,63 +341,65 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hi, {userName}!</h1>
-          <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
+      {isSharedView ? <AccountSwitcher /> : (
+        <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Hi, {userName}!</h1>
+              <p className="text-muted-foreground">Welcome back! Here&apos;s your financial overview.</p>
+            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+             <AddTransactionDialog 
+                open={isAddTransactionOpen || !!editingTransaction}
+                onOpenChange={(open) => {
+                  if(!open) { setEditingTransaction(null); setIsAddTransactionOpen(false); }
+                }}
+                trigger={
+                  <Button onClick={() => setIsAddTransactionOpen(true)}>
+                      <PlusCircle className="mr-2 h-4 w-4"/>
+                      Add Transaction
+                  </Button>
+                }
+                onAddOrUpdateTransaction={handleAddOrUpdateTransaction}
+                existingTransaction={editingTransaction}
+              />
+              <AddEmiDialog
+                open={isAddEmiOpen || !!editingEmi}
+                onOpenChange={(open) => {
+                  if(!open) { setEditingEmi(null); setIsAddEmiOpen(false); }
+                }}
+                trigger={
+                  <Button variant="secondary" onClick={() => setIsAddEmiOpen(true)}>
+                      <Repeat className="mr-2 h-4 w-4"/>
+                      Add EMI
+                  </Button>
+                }
+                onAddOrUpdateEmi={handleAddOrUpdateEmi}
+                existingEmi={editingEmi}
+              />
+              <AddAutopayDialog 
+                open={isAddAutopayOpen || !!editingAutopay}
+                onOpenChange={(open) => {
+                  if(!open) { setEditingAutopay(null); setIsAddAutopayOpen(false); }
+                }}
+                trigger={
+                  <Button variant="secondary" onClick={() => setIsAddAutopayOpen(true)}>
+                      <Repeat className="mr-2 h-4 w-4"/>
+                      Add Autopay
+                  </Button>
+                }
+                onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
+                existingAutopay={editingAutopay}
+              />
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-           <AddTransactionDialog 
-              open={isAddTransactionOpen || !!editingTransaction}
-              onOpenChange={(open) => {
-                if(!open) { setEditingTransaction(null); setIsAddTransactionOpen(false); }
-              }}
-              trigger={
-                <Button onClick={() => setIsAddTransactionOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4"/>
-                    Add Transaction
-                </Button>
-              }
-              onAddOrUpdateTransaction={handleAddOrUpdateTransaction}
-              existingTransaction={editingTransaction}
-            />
-            <AddEmiDialog
-              open={isAddEmiOpen || !!editingEmi}
-              onOpenChange={(open) => {
-                if(!open) { setEditingEmi(null); setIsAddEmiOpen(false); }
-              }}
-              trigger={
-                <Button variant="secondary" onClick={() => setIsAddEmiOpen(true)}>
-                    <Repeat className="mr-2 h-4 w-4"/>
-                    Add EMI
-                </Button>
-              }
-              onAddOrUpdateEmi={handleAddOrUpdateEmi}
-              existingEmi={editingEmi}
-            />
-            <AddAutopayDialog 
-              open={isAddAutopayOpen || !!editingAutopay}
-              onOpenChange={(open) => {
-                if(!open) { setEditingAutopay(null); setIsAddAutopayOpen(false); }
-              }}
-              trigger={
-                <Button variant="secondary" onClick={() => setIsAddAutopayOpen(true)}>
-                    <Repeat className="mr-2 h-4 w-4"/>
-                    Add Autopay
-                </Button>
-              }
-              onAddOrUpdateAutopay={handleAddOrUpdateAutopay}
-              existingAutopay={editingAutopay}
-            />
-        </div>
-      </div>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <SummaryCard 
           icon={CircleDollarSign} 
           title="Monthly Budget" 
           value={budget} 
-          action={<BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} />} 
+          action={canEdit ? <BudgetSetter currentBudget={budget} onSetBudget={handleSetBudget} /> : undefined} 
         />
         <SummaryCard icon={Receipt} title="Total Expenses" value={totalExpenses} />
         <SummaryCard icon={Wallet} title="Remaining Amount" value={remainingAmount} />
@@ -415,8 +422,8 @@ export default function DashboardPage() {
             <CardContent>
               <TransactionTable 
                 transactions={filteredTransactions} 
-                onEdit={(t) => { setEditingTransaction(t); setIsAddTransactionOpen(true); }}
-                onDelete={(id) => openDeleteDialog(id, 'transaction')}
+                onEdit={canEdit ? (t) => { setEditingTransaction(t); setIsAddTransactionOpen(true); } : undefined}
+                onDelete={canDelete ? (id) => openDeleteDialog(id, 'transaction') : undefined}
               />
             </CardContent>
            </Card>
@@ -428,13 +435,13 @@ export default function DashboardPage() {
                  <div className="grid gap-1">
                     <CardTitle>Running EMIs</CardTitle>
                 </div>
-                 <Button variant="ghost" size="icon" onClick={() => setIsAddEmiOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
+                 {canEdit && <Button variant="ghost" size="icon" onClick={() => setIsAddEmiOpen(true)}><PlusCircle className="h-4 w-4"/></Button>}
               </CardHeader>
               <CardContent>
                <EmiTable 
                 emis={emis} 
-                onEdit={(e) => { setEditingEmi(e); setIsAddEmiOpen(true); }}
-                onDelete={(id) => openDeleteDialog(id, 'emi')}
+                onEdit={canEdit ? (e) => { setEditingEmi(e); setIsAddEmiOpen(true); } : undefined}
+                onDelete={canDelete ? (id) => openDeleteDialog(id, 'emi') : undefined}
                />
               </CardContent>
             </Card>
@@ -444,13 +451,13 @@ export default function DashboardPage() {
                 <div className="grid gap-1">
                   <CardTitle>Autopay</CardTitle>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsAddAutopayOpen(true)}><PlusCircle className="h-4 w-4"/></Button>
+                {canEdit && <Button variant="ghost" size="icon" onClick={() => setIsAddAutopayOpen(true)}><PlusCircle className="h-4 w-4"/></Button>}
               </CardHeader>
               <CardContent>
                <AutopayTable 
                 autopays={autopays} 
-                onEdit={(a) => { setEditingAutopay(a); setIsAddAutopayOpen(true); }}
-                onDelete={(id) => openDeleteDialog(id, 'autopay')}
+                onEdit={canEdit ? (a) => { setEditingAutopay(a); setIsAddAutopayOpen(true); } : undefined}
+                onDelete={canDelete ? (id) => openDeleteDialog(id, 'autopay') : undefined}
                />
               </CardContent>
             </Card>
@@ -469,7 +476,7 @@ export default function DashboardPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDeletionInfo(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

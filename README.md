@@ -10,10 +10,11 @@ Whether you're looking to save more, get out of debt, or simply understand where
 *   **Seamless Transaction Tracking**: Effortlessly log every income and expense with clear categorization to see exactly where your money is going.
 *   **Automated Payment Management**: Keep track of recurring payments like EMIs and autopay subscriptions to understand your fixed monthly commitments.
 *   **Insightful Reporting**: Dive deep into your financial habits with detailed monthly reports. Filter by month and year to analyze your financial history.
+*   **Secure Account Sharing**: Securely share your financial data with a partner, family member, or financial advisor. Grant specific permissions like `viewer`, `editor`, or `admin` for controlled access. You can revoke access at any time.
 *   **SplitEase for Group Expenses**: Create groups, invite friends, and easily split shared expenses like trips or household bills. The app calculates who owes whom, simplifying settlements.
 *   **AI-Powered Financial Advice**: Receive short, personalized, and actionable tips based on your financial data to help improve your financial health.
-*   **Secure & Private**: Your financial data is protected with secure user authentication, ensuring your information remains private.
-*   **Full Data Control**: Easily export your financial history to both JSON and PDF formats, or import your data from a JSON backup file.
+*   **Secure & Private**: Your financial data is protected with secure user authentication and robust Firestore security rules, ensuring your information remains private.
+*   **Full Data Control**: Easily export your complete financial history to both JSON and PDF formats, or import your data from a JSON backup file.
 *   **Admin Management Panel**: A dedicated panel for administrators to view user financials and manage application data.
 
 To get started, create an account and begin your journey to financial clarity!

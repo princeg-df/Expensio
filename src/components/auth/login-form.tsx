@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -13,6 +14,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { auth } from '@/lib/firebase';
 import { Loader } from '@/components/ui/loader';
+import { Eye, EyeOff } from 'lucide-react';
+import { ForgotPasswordDialog } from './forgot-password-dialog';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email.' }),
@@ -21,6 +24,8 @@ const formSchema = z.object({
 
 export function LoginForm() {
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -61,6 +66,7 @@ export function LoginForm() {
   }
 
   return (
+    <>
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="w-full space-y-4">
         <FormField
@@ -81,9 +87,30 @@ export function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Password</FormLabel>
+                <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-xs text-muted-foreground"
+                    onClick={() => setIsForgotPasswordOpen(true)}
+                >
+                    Forgot Password?
+                </Button>
+              </div>
               <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
+                <div className="relative">
+                    <Input type={showPassword ? 'text' : 'password'} placeholder="••••••••" {...field} />
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                        onClick={() => setShowPassword(prev => !prev)}
+                    >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                </div>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -94,5 +121,10 @@ export function LoginForm() {
         </Button>
       </form>
     </Form>
+    <ForgotPasswordDialog
+        isOpen={isForgotPasswordOpen}
+        onOpenChange={setIsForgotPasswordOpen}
+    />
+    </>
   );
 }

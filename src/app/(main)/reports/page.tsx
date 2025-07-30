@@ -20,6 +20,8 @@ import { Loader } from '@/components/ui/loader';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { AccountSwitcher } from '@/components/layout/account-switcher';
+
 
 type FinancialEvent = {
   date: Date;
@@ -48,7 +50,7 @@ const categoryIcons: { [key: string]: React.ComponentType<{ className?: string }
 
 
 export default function ReportsPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, viewingUid, isSharedView } = useAuth();
   const { toast } = useToast();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [emis, setEmis] = useState<Emi[]>([]);
@@ -86,24 +88,24 @@ export default function ReportsPage() {
   ];
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!viewingUid) return;
     setLoading(true);
     try {
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(db, 'users', viewingUid);
       const userDocSnap = await getDoc(userDocRef);
       if (userDocSnap.exists()) {
         setBudget(userDocSnap.data().budget || 0);
       }
       
-      const transactionsQuery = query(collection(db, `users/${user.uid}/transactions`));
+      const transactionsQuery = query(collection(db, `users/${viewingUid}/transactions`));
       const transactionsSnapshot = await getDocs(transactionsQuery);
       setTransactions(transactionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction)));
       
-      const emisQuery = query(collection(db, `users/${user.uid}/emis`));
+      const emisQuery = query(collection(db, `users/${viewingUid}/emis`));
       const emisSnapshot = await getDocs(emisQuery);
       setEmis(emisSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Emi)));
 
-      const autopaysQuery = query(collection(db, `users/${user.uid}/autopays`));
+      const autopaysQuery = query(collection(db, `users/${viewingUid}/autopays`));
       const autopaysSnapshot = await getDocs(autopaysQuery);
       setAutopays(autopaysSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Autopay)));
     } catch(e) {
@@ -111,13 +113,13 @@ export default function ReportsPage() {
     } finally {
         setLoading(false);
     }
-  }, [user]);
+  }, [viewingUid]);
 
   useEffect(() => {
-    if (user) {
+    if (viewingUid) {
       fetchData();
     }
-  }, [user, fetchData]);
+  }, [viewingUid, fetchData]);
 
 
   const { monthlyEvents, totalExpenses, totalIncome, netFlow, remainingAmount } = useMemo(() => {
@@ -309,38 +311,41 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Monthly Report</h1>
-          <p className="text-muted-foreground">An overview of your finances for a selected month.</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select Month" />
-                </SelectTrigger>
-                <SelectContent>
-                    {months.map(m => (
-                        <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-                <SelectTrigger className="w-[120px]">
-                    <SelectValue placeholder="Select Year" />
-                </SelectTrigger>
-                <SelectContent>
-                    {years.map(y => (
-                        <SelectItem key={y} value={y}>{y}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
-             <Button variant="outline" onClick={handleExportPdf}>
-                <Download className="mr-2 h-4 w-4" />
-                Export as PDF
-             </Button>
-        </div>
-      </div>
+       {isSharedView ? <AccountSwitcher /> : (
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Monthly Report</h1>
+              <p className="text-muted-foreground">An overview of your finances for a selected month.</p>
+            </div>
+            <div className="flex items-center gap-2">
+                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Select Month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {months.map(m => (
+                            <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Select value={selectedYear} onValueChange={setSelectedYear}>
+                    <SelectTrigger className="w-[120px]">
+                        <SelectValue placeholder="Select Year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {years.map(y => (
+                            <SelectItem key={y} value={y}>{y}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={handleExportPdf}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export as PDF
+                </Button>
+            </div>
+          </div>
+        )}
+
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryCard icon={CircleDollarSign} title="Monthly Budget" value={budget} />
@@ -415,5 +420,3 @@ export default function ReportsPage() {
   );
 
 }
-
-    
