@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -17,71 +16,86 @@ service cloud.firestore {
       return request.auth.token.email == 'princegupta619@gmail.com';
     }
 
-    // Check if the requesting user has been granted access through the 'shares' collection
-    function hasSharedAccess(ownerId, permission) {
-      let requestingUserDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      
-      // If the user doesn't exist yet (e.g., invited but not signed up), they can't have access.
-      if (!exists(/databases/$(database)/documents/users/$(request.auth.uid))) {
-        return false;
-      }
-      
-      let shareId = ownerId + '_' + requestingUserDoc.data.email;
-      let shareDoc = get(/databases/$(database)/documents/shares/$(shareId));
-      
-      let isAccepted = shareDoc.data.status == 'accepted';
-      let hasPermission = permission == 'viewer' || 
-                          (permission == 'editor' && (shareDoc.data.role == 'editor' || shareDoc.data.role == 'admin')) ||
-                          (permission == 'admin' && shareDoc.data.role == 'admin');
-                          
-      return isAccepted && hasPermission;
+    function isSharedWith(ownerId) {
+      // Check if a share document exists from the owner to the current user
+      // This relies on the share document having a predictable ID: `${ownerUid}_${sharedWithEmail}`
+      // Note: We can't use request.auth.token.email here directly for the lookup key,
+      // so the app MUST store the sharedWithUid in the document upon acceptance.
+      let shareId = ownerId + '_' + request.auth.token.email;
+      return exists(/databases/$(database)/documents/shares/$(shareId)) &&
+             get(/databases/$(database)/documents/shares/$(shareId)).data.status == 'accepted';
+    }
+    
+    function canEditShared(ownerId) {
+      let shareId = ownerId + '_' + request.auth.token.email;
+      let shareDoc = get(/databases/$(database)/documents/shares/$(shareId)).data;
+      return exists(/databases/$(database)/documents/shares/$(shareId)) &&
+             shareDoc.status == 'accepted' &&
+             (shareDoc.role == 'editor' || shareDoc.role == 'admin');
+    }
+    
+    function canAdminShared(ownerId) {
+       let shareId = ownerId + '_' + request.auth.token.email;
+       let shareDoc = get(/databases/$(database)/documents/shares/$(shareId)).data;
+       return exists(/databases/$(database)/documents/shares/$(shareId)) &&
+             shareDoc.status == 'accepted' &&
+             shareDoc.role == 'admin';
     }
 
-
-    // --- Users Collection Rules ---
+    // --- User Data Rules ---
     match /users/{userId} {
-      allow read: if isOwner(userId) || hasSharedAccess(userId, 'viewer') || isAdmin();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || hasSharedAccess(userId, 'editor') || isAdmin();
-      allow delete: if isOwner(userId) || hasSharedAccess(userId, 'admin') || isAdmin();
+      allow read: if isOwner(userId) || isAdmin() || isSharedWith(userId);
+      // Only the owner or an admin can update the main user document (e.g., budget, profile)
+      allow write: if isOwner(userId) || isAdmin();
 
-      // Subcollections (transactions, emis, autopays)
-      match /{collection}/{docId} {
-        allow read: if isOwner(userId) || hasSharedAccess(userId, 'viewer') || isAdmin();
-        allow create, update: if isOwner(userId) || hasSharedAccess(userId, 'editor') || isAdmin();
-        allow delete: if isOwner(userId) || hasSharedAccess(userId, 'admin') || isAdmin();
+      // Subcollections
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId) || isAdmin() || isSharedWith(userId);
+        allow create, update: if isOwner(userId) || isAdmin() || canEditShared(userId);
+        allow delete: if isOwner(userId) || isAdmin() || canAdminShared(userId);
+      }
+
+      match /emis/{emiId} {
+        allow read: if isOwner(userId) || isAdmin() || isSharedWith(userId);
+        allow create, update: if isOwner(userId) || isAdmin() || canEditShared(userId);
+        allow delete: if isOwner(userId) || isAdmin() || canAdminShared(userId);
+      }
+      
+      match /autopays/{autopayId} {
+        allow read: if isOwner(userId) || isAdmin() || isSharedWith(userId);
+        allow create, update: if isOwner(userId) || isAdmin() || canEditShared(userId);
+        allow delete: if isOwner(userId) || isAdmin() || canAdminShared(userId);
       }
     }
 
-
-    // --- Shares Collection Rules ---
+    // --- Sharing Rules ---
     match /shares/{shareId} {
-      // Allow read if you are the owner or the person it's shared with.
+      // An owner or the recipient can read the share doc
       allow read: if isSignedIn() && (request.auth.uid == resource.data.ownerUid || request.auth.token.email == resource.data.sharedWithEmail);
       
-      // Allow create if you are the owner and the shareId matches the expected format.
+      // An owner can create a share. The shareId must match the expected format.
       allow create: if isOwner(request.resource.data.ownerUid) && shareId == request.resource.data.ownerUid + '_' + request.resource.data.sharedWithEmail;
       
-      // Allow the recipient to update the status to 'accepted'.
-      allow update: if isSignedIn() && request.auth.token.email == resource.data.sharedWithEmail;
-
-      // Allow owner to delete the share.
+      // The recipient can update the status to 'accepted' and add their UID
+      allow update: if isSignedIn() && 
+                     request.auth.token.email == resource.data.sharedWithEmail &&
+                     request.resource.data.status == 'accepted' &&
+                     request.resource.data.sharedWithUid == request.auth.uid;
+                     
+      // The owner can delete the share to revoke access
       allow delete: if isOwner(resource.data.ownerUid);
     }
     
-
-    // --- Groups Collection (SplitEase) ---
+    // --- SplitEase Rules ---
     match /groups/{groupId} {
-      // Allow R/W if the user is a member of the group.
-      allow read, create, update, delete: if isSignedIn() && request.auth.uid in resource.data.members;
+      // Members of a group can read/write to the group document
+      allow read, write: if isSignedIn() && request.auth.uid in resource.data.members;
 
-      // Rules for expenses within a group
+      // Members can manage expenses within that group
       match /expenses/{expenseId} {
-        allow read, create, update, delete: if isSignedIn() && 
+        allow read, write, delete: if isSignedIn() &&
                             request.auth.uid in get(/databases/$(database)/documents/groups/$(groupId)).data.members;
       }
     }
   }
 }
-
-    
