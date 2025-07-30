@@ -1,77 +1,93 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
+
+    // --- Helper Functions ---
+    // Checks if the user is the owner of a document.
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isAdminEmail() {
+    // Checks if the requesting user is the system admin.
+    function isAdmin() {
       return request.auth.token.email == 'princegupta619@gmail.com';
     }
-    
-    // SplitEase: Check if user is a member of a group
-    function isGroupMember(groupId) {
-      return isSignedIn() && get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
+
+    // Checks if a user has a specific role for a shared document.
+    // It queries the 'shares' collection to find a matching invitation.
+    function getShareRole(ownerUid) {
+      let matchingShares = get(/databases/$(database)/documents/shares?id=_placeholder_).data; // This is a placeholder for a query
+      // Firestore rules do not support direct queries like this in functions.
+      // We must rely on checking existence of documents with predictable IDs or checking fields on the requested resource.
+      // The logic needs to be in the `allow` statements themselves.
+      return 'none'; // Placeholder, actual logic moved to rules.
     }
     
-    // Sharing: Check role for a shared account
-    function getShareRole(ownerId) {
-      let shares = firestore.get(/databases/$(database)/documents/shares?ownerUid=$(ownerId)&sharedWithUid_eq=$(request.auth.uid)&status_eq=accepted).docs;
-      return shares.size() > 0 ? shares[0].data.role : null;
+    function isSharedWith(ownerUid) {
+      // This function needs to check if there is an accepted share from ownerUid to the current user.
+      // Firestore security rules cannot perform queries. We must check for the existence of a specific document.
+      // This is a limitation. We will handle this in the rules directly.
+      return false; 
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Users Collection
-    match /users/{userId} {
-      allow read, update, delete: if isUser(userId) || isAdminEmail();
-      allow create: if isSignedIn();
-      
-      // User's Subcollections
-      match /{collection}/{docId} {
-        allow read: if 
-          isUser(userId) || 
-          getShareRole(userId) in ['viewer', 'editor', 'admin'] ||
-          isAdminEmail();
-          
-        allow create, update: if 
-          isUser(userId) ||
-          getShareRole(userId) in ['editor', 'admin'];
-
-        allow delete: if 
-          isUser(userId) ||
-          getShareRole(userId) == 'admin' ||
-          isAdminEmail();
-      }
+    // --- User Data Rules ---
+    // Users can fully control their own data.
+    // Admins can read anyone's data.
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+      allow read: if isAdmin();
     }
     
-    // Groups (SplitEase) Collection
-    match /groups/{groupId} {
-      allow read, update: if isGroupMember(groupId);
-      allow create: if isSignedIn();
-      
-      match /expenses/{expenseId} {
-         allow read, create, update, delete: if isGroupMember(groupId);
-      }
-    }
-    
-    // Shares (Sharing Invitations) Collection
+    // --- Sharing Rules ---
     match /shares/{shareId} {
-        allow create: if request.resource.data.ownerUid == request.auth.uid;
-        allow read: if request.resource.data.ownerUid == request.auth.uid || request.resource.data.sharedWithEmail == request.auth.token.email;
-        allow update: if request.resource.data.sharedWithEmail == request.auth.token.email && request.resource.data.status == 'pending';
-        allow delete: if request.resource.data.ownerUid == request.auth.uid;
+      // READ: You can read a share if you are the owner or the recipient.
+      allow read: if resource.data.ownerUid == request.auth.uid || resource.data.sharedWithEmail == request.auth.token.email;
+
+      // CREATE: You can create a share invitation only if you are the owner.
+      allow create: if request.resource.data.ownerUid == request.auth.uid;
+      
+      // UPDATE: The recipient can update a share to accept it.
+      allow update: if resource.data.sharedWithEmail == request.auth.token.email && request.resource.data.status == 'accepted';
+
+      // DELETE: The owner can delete a share to revoke access.
+      allow delete: if resource.data.ownerUid == request.auth.uid;
+    }
+
+    // --- Shared Data Access Rules ---
+    // These rules allow a user to access another user's data if a share exists.
+    // We check for the existence of a corresponding 'share' document.
+    match /users/{ownerId} {
+      allow get: if exists(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)) &&
+                    get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.status == 'accepted';
+    }
+
+    match /users/{ownerId}/{subcollection}/{docId} {
+       // READ access for viewer, editor, admin
+       allow read: if exists(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)) &&
+                     get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.status == 'accepted';
+
+       // WRITE access for editor, admin
+       allow create, update: if exists(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)) &&
+                               get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.status == 'accepted' &&
+                               (get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.role == 'editor' || 
+                                get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.role == 'admin');
+
+       // DELETE access only for admin
+       allow delete: if exists(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)) &&
+                       get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.status == 'accepted' &&
+                       get(/databases/$(database)/documents/shares/$(ownerId)_$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // --- SplitEase Group Rules ---
+    match /groups/{groupId} {
+        // Only group members can read group data or update members list.
+        allow read, update: if resource.data.members.hasAny([request.auth.uid]);
+    }
+
+    match /groups/{groupId}/expenses/{expenseId} {
+        // Only group members can read and write expenses for that group.
+        allow read, write: if get(/databases/$(database)/documents/groups/$(groupId)).data.members.hasAny([request.auth.uid]);
     }
   }
 }
