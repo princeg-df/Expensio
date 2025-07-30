@@ -11,7 +11,6 @@ import {
   collection,
   query,
   where,
-  addDoc,
   getDocs,
   onSnapshot,
   doc,
@@ -19,6 +18,7 @@ import {
   updateDoc,
   Timestamp,
   writeBatch,
+  setDoc,
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Share, Role } from '@/lib/types';
@@ -117,7 +117,7 @@ export default function SharingPage() {
         ownerUid: user.uid,
         ownerEmail: user.email,
         sharedWithEmail: values.email,
-        role: values.role,
+        role: values.role as Role,
         status: 'pending',
         createdAt: Timestamp.now(),
       };
@@ -126,7 +126,10 @@ export default function SharingPage() {
         shareData.sharedWithUid = querySnapshot.docs[0].id;
       }
       
-      await addDoc(collection(db, 'shares'), shareData);
+      const shareId = `${user.uid}_${values.email}`;
+      const shareDocRef = doc(db, 'shares', shareId);
+      await setDoc(shareDocRef, shareData);
+
       toast({ title: 'Success', description: 'Invitation sent successfully.' });
       form.reset();
     } catch (error) {
@@ -328,3 +331,5 @@ export default function SharingPage() {
     </div>
   );
 }
+
+    
