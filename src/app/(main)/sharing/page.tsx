@@ -56,33 +56,35 @@ export default function SharingPage() {
   });
 
   const fetchShares = useCallback(() => {
-    if (!user) return;
+    if (!user?.email) return;
     setLoading(true);
 
     const outgoingQuery = query(collection(db, 'shares'), where('ownerUid', '==', user.uid));
     const incomingQuery = query(collection(db, 'shares'), where('sharedWithEmail', '==', user.email));
-
+    
     const unsubscribeOutgoing = onSnapshot(outgoingQuery, (snapshot) => {
-      const shares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Share));
-      setOutgoingShares(shares);
+      const sharesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Share));
+      setOutgoingShares(sharesData);
       setLoading(false);
     }, (error) => {
         console.error("Error fetching outgoing shares:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load your shared accounts.' });
         setLoading(false);
     });
 
     const unsubscribeIncoming = onSnapshot(incomingQuery, (snapshot) => {
-      const shares = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Share));
-      setIncomingShares(shares);
+      const sharesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Share));
+      setIncomingShares(sharesData);
     }, (error) => {
         console.error("Error fetching incoming shares:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to load incoming invitations.' });
     });
 
     return () => {
       unsubscribeOutgoing();
       unsubscribeIncoming();
     };
-  }, [user]);
+  }, [user, toast]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -101,7 +103,6 @@ export default function SharingPage() {
       return;
     }
     
-    // Check if already shared with this email
     if (outgoingShares.some(share => share.sharedWithEmail === values.email)) {
         toast({ variant: 'destructive', title: 'Error', description: "You have already shared your account with this user." });
         return;
